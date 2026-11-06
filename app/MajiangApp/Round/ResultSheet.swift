@@ -75,7 +75,7 @@ struct ResultSheet: View {
                     .padding(.top, 22)
                     .padding(.bottom, 6)
                 DeltaGrid(game: game, deltas: deltas)
-                Text(game.paymentExplanation(record, deltas: deltas))
+                Text(game.paymentExplanation(record, honba: game.currentHonba, deltas: deltas))
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
                     .lineSpacing(3)

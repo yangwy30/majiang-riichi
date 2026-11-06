@@ -145,20 +145,64 @@ final class GameTests: XCTestCase {
 
     func testRecordingAndLedger() throws {
         var game = makeGame()
-        // 第 1 局（东 1，庄 0）：庄家自摸满贯（5 翻） -> 三家各 -4000，庄 +12000
+        // 第 1 局（东 1 · 0 本场，庄 0）：庄家自摸满贯（5 翻） -> 三家各 -4000，庄 +12000；庄家连庄进 1 本场
         try game.recordWin(win(0, discarder: nil, fan: 5))
-        // 第 2 局（东 2，庄 1）：闲家 2 荣和 1 满贯（3 翻役 + 2 宝牌） -> 1 付 8000
+        XCTAssertEqual(game.currentHandIndex, 0, "庄家和牌连庄，仍在东 1 局")
+        XCTAssertEqual(game.currentHonba, 1, "连庄后进入 1 本场")
+        XCTAssertEqual(game.dealer, 0)
+
+        // 第 2 局（东 1 · 1 本场，庄 0）：闲家 2 荣和 1 满贯（3 翻役 + 2 宝牌） -> 1 付 8000 + 300（1 本场）= 8300；闲家和牌后轮庄、本场归零
         try game.recordWin(win(2, discarder: 1, fan: 5, dora: 2))
+        XCTAssertEqual(game.currentHandIndex, 1, "闲家和牌后进东 2 局")
+        XCTAssertEqual(game.currentHonba, 0, "闲家和牌后本场归零")
+        XCTAssertEqual(game.dealer, 1)
+
         // 错和（3 赔三家各 3000）
         try game.recordFalseWin(offender: 3)
-        XCTAssertEqual(game.currentHandIndex, 2, "错和不推进局数")
-        XCTAssertEqual(game.scores, [12000 + 3000, -4000 - 8000 + 3000, -4000 + 8000 + 3000, -4000 - 9000])
+        XCTAssertEqual(game.currentHandIndex, 1, "错和不推进局数")
+        XCTAssertEqual(game.playedHandsCount, 2)
+        XCTAssertEqual(game.scores, [12000 + 3000, -4000 - 8300 + 3000, -4000 + 8300 + 3000, -4000 - 9000])
         XCTAssertEqual(game.scores.reduce(0, +), 0)
         XCTAssertEqual(game.money(forPoints: game.scores[0]), 15)
         XCTAssertEqual(game.biggestWin?.win.winner, 0)
 
         game.undoLast()
         XCTAssertEqual(game.records.count, 2)
+    }
+
+    func testHonbaAndRiichiSticksAndDrawTenpaiBappu() throws {
+        // 1/2/3/0/4 家听牌的流局罚符
+        XCTAssertEqual(Payment.drawDeltas(tenpai: []), [0, 0, 0, 0])
+        XCTAssertEqual(Payment.drawDeltas(tenpai: [0, 1, 2, 3]), [0, 0, 0, 0])
+        XCTAssertEqual(Payment.drawDeltas(tenpai: [0]), [3000, -1000, -1000, -1000])
+        XCTAssertEqual(Payment.drawDeltas(tenpai: [0, 2]), [1500, -1500, 1500, -1500])
+        XCTAssertEqual(Payment.drawDeltas(tenpai: [0, 1, 2]), [1000, 1000, 1000, -3000])
+
+        var game = makeGame()
+        // 东 1 局 · 0 本场：流局，庄家（0）和 2 听牌 -> 庄家连庄，进 东 1 局 · 1 本场
+        try game.recordDraw(tenpai: [0, 2])
+        XCTAssertEqual(game.currentHandIndex, 0, "庄家听牌连庄")
+        XCTAssertEqual(game.currentHonba, 1)
+        XCTAssertEqual(game.scores, [1500, -1500, 1500, -1500])
+
+        // 东 1 局 · 1 本场：流局，只有闲家（1）听牌 -> 庄家不听流庄，进 东 2 局 · 2 本场（庄家变为 1）
+        try game.recordDraw(tenpai: [1])
+        XCTAssertEqual(game.currentHandIndex, 1, "庄家不听流庄")
+        XCTAssertEqual(game.currentHonba, 2, "流局本场继续累加")
+        XCTAssertEqual(game.dealer, 1)
+
+        // 东 2 局 · 2 本场（庄 1）：闲家 2 自摸满贯（庄付 4000+200，闲付 2000+200），且场上 0、1 立直了（各交 1000 立直棒）
+        var w = win(2, discarder: nil, fan: 5)
+        w.riichiPlayers = [0, 1, 2] // 2 自己的立直棒会自动忽略
+        let rec = try game.recordWin(w)
+        // 0 付：2200（自摸含 2 本场）+ 1000（立直棒）= 3200
+        // 1（庄）付：4200（自摸含 2 本场）+ 1000（立直棒）= 5200
+        // 3 付：2200（自摸含 2 本场）
+        // 2 收：3200 + 5200 + 2200 = 10600
+        XCTAssertEqual(rec.deltas, [-3200, -5200, 10600, -2200])
+        XCTAssertEqual(rec.deltas.reduce(0, +), 0)
+        XCTAssertEqual(game.currentHandIndex, 2, "闲家和牌推进到东 3 局")
+        XCTAssertEqual(game.currentHonba, 0, "和牌后本场归零")
     }
 
     func testRejectsInvalidWins() {
@@ -281,6 +325,14 @@ final class ArchiveAndParsingTests: XCTestCase {
         XCTAssertTrue(SpecialWin.riichi.conflicts.contains(.doubleRiichi))
         XCTAssertTrue(SpecialWin.kongReplacement.conflicts.contains(.lastTileDraw))
         XCTAssertTrue(SpecialWin.lastTileClaim.conflicts.contains(.robbingTheKong))
+    }
+
+    func testOldDrawnJsonAndRedFiveNotation() throws {
+        let oldDrawn = try JSONDecoder().decode(HandOutcome.self, from: Data(#"{"drawn":{}}"#.utf8))
+        XCTAssertEqual(oldDrawn, .drawn(tenpai: []))
+        let newDrawn = try JSONDecoder().decode(HandOutcome.self, from: Data(#"{"drawn":{"tenpai":[0,2]}}"#.utf8))
+        XCTAssertEqual(newDrawn, .drawn(tenpai: [0, 2]))
+        XCTAssertEqual(Tile.parseList("406m 0p 0s"), Tile.parseList("456m 5p 5s"))
     }
 }
 

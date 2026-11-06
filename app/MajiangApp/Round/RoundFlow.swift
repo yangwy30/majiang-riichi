@@ -46,6 +46,8 @@ final class RoundFlow {
     var corrections = 0
     var specials: Set<SpecialWin> = []
     var flowerCount = 0
+    /// 除和牌者外，本局也宣告立直并投出 1000 点立直棒的玩家。
+    var riichiPlayers: Set<Int> = []
     var showResult = false
 
     /// 每次识别一个编号；中途重拍了，旧的结果回来时丢掉。
@@ -88,6 +90,7 @@ final class RoundFlow {
     func pickWinner(_ player: Int) {
         winner = player
         winnerChosen = true
+        riichiPlayers.remove(player)
         // 点炮的人不能是和牌的人：原来选的点炮者变成了和牌者，就得重新选
         if !selfDrawn && discarder == player {
             discarder = nil
@@ -307,7 +310,8 @@ final class RoundFlow {
               case .success(let result) = scoring, result.meetsMinimum(game.rules.minimumFan) else { return nil }
         // 拍照页回头改了和牌者时，之前选的点炮者可能就是和牌者本人，这时不能记账
         if !selfDrawn && (discarder == nil || discarder == winner) { return nil }
-        return WinRecord(winner: winner, discarder: selfDrawn ? nil : discarder, hand: hand, context: context, result: result)
+        return WinRecord(winner: winner, discarder: selfDrawn ? nil : discarder, hand: hand, context: context,
+                         result: result, riichiPlayers: riichiPlayers.subtracting([winner]))
     }
 
     var deltas: [Int]? {
@@ -318,6 +322,8 @@ final class RoundFlow {
             dealer: game.dealer,
             totalFan: game.rules.paidFan(record),
             fu: record.fu,
+            honba: game.currentHonba,
+            riichiPlayers: record.riichiPlayers,
             rules: game.rules
         )
     }

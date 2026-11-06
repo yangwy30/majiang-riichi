@@ -7,6 +7,7 @@ struct TableView: View {
     let gameID: UUID
 
     @State private var recording = false
+    @State private var drawingHand = false
     @State private var manualScoring = false
     @State private var showGuide = false
     @State private var editingRules = false
@@ -64,8 +65,8 @@ struct TableView: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text("账本").font(.system(size: 14, weight: .medium))
                     Spacer()
-                    Text(game.isFinished ? "打了 \(game.currentHandIndex) 局"
-                         : "打了 \(game.currentHandIndex) 局 · 还剩 \(game.remainingHands) 局")
+                    Text(game.isFinished ? "打了 \(game.playedHandsCount) 局"
+                         : "打了 \(game.playedHandsCount) 局 · 还剩 \(game.remainingHands) 局")
                         .font(.system(size: 14))
                 }
                 .foregroundStyle(Theme.gray)
@@ -101,7 +102,7 @@ struct TableView: View {
         }
         .bottomBar {
             if let record = justRecorded {
-                UndoBar(text: "已记下第 \(record.handIndex + 1) 局") { undo(record) }
+                UndoBar(text: "已记下第 \(game.records.count) 局") { undo(record) }
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -111,7 +112,7 @@ struct TableView: View {
             } else {
                 Button("有人和了") { recording = true }
                     .buttonStyle(.primary)
-                Button("这局没人和") { record { try $0.recordDraw() } }
+                Button("这局没人和") { drawingHand = true }
                     .buttonStyle(.text)
             }
         }
@@ -182,6 +183,11 @@ struct TableView: View {
                 case .falseWin(let offender): record { try $0.recordFalseWin(offender: offender) }
                 default: break
                 }
+            }
+        }
+        .sheet(isPresented: $drawingHand) {
+            DrawHandSheet(game: game) { tenpai in
+                record { try $0.recordDraw(tenpai: tenpai) }
             }
         }
         .sheet(isPresented: $manualScoring) {
@@ -312,9 +318,11 @@ private struct TableDiagram: View {
             VStack(spacing: 6) {
                 Text(game.prevalentWind(ofHand: hand).name)
                     .font(Theme.serif(compact ? 48 : 56))
-                Text(game.isFinished ? "打完了" : "场 · 第 \(hand % 4 + 1) 局")
+                Text(game.isFinished ? "打完了" : game.tableCenterSubtitle)
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .frame(width: compact ? 140 : 168, height: compact ? 140 : 168)
             .background {
@@ -427,5 +435,95 @@ private struct UndoBar: View {
         .padding(.trailing, 4)
         .frame(height: 40)
         .background(Theme.ink, in: Capsule())
+    }
+}
+
+/// 荒牌流局：点选哪几家听牌（可多选，0–4 人），自动计算不听罚 3000 点与庄家连庄/流庄。
+private struct DrawHandSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    var game: Game
+    var onSave: (Set<Int>) -> Void
+
+    @State private var tenpai: Set<Int> = []
+
+    private var deltas: [Int] { Payment.drawDeltas(tenpai: tenpai) }
+    private var dealer: Int { game.dealer }
+    private var dealerTenpai: Bool { tenpai.contains(dealer) }
+
+    private var summaryNote: String {
+        let dealerName = game.players[dealer].name
+        let nextHonba = game.currentHonba + 1
+        let dealerStatus = dealerTenpai
+            ? "庄家（\(dealerName)）听牌连庄 · 下一局为 \(nextHonba) 本场"
+            : "庄家（\(dealerName)）未听牌流庄 · 下一局为 \(nextHonba) 本场"
+        switch tenpai.count {
+        case 0:
+            return "四家都没听牌，不交换点数。\(dealerStatus)。"
+        case 4:
+            return "四家都听牌，不交换点数。\(dealerStatus)。"
+        case 1:
+            return "1 家听牌收 +3000 点，其余 3 家各付 −1000 点。\(dealerStatus)。"
+        case 2:
+            return "2 家听牌各收 +1500 点，不听 2 家各付 −1500 点。\(dealerStatus)。"
+        default:
+            return "3 家听牌各收 +1000 点，不听 1 家独付 −3000 点。\(dealerStatus)。"
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    SectionLabel("哪几家听牌了（可多选）")
+                        .padding(.top, 16)
+                        .padding(.bottom, 10)
+                    HStack(spacing: 8) {
+                        ForEach(0..<4, id: \.self) { i in
+                            let selected = tenpai.contains(i)
+                            NameChip(name: game.players[i].name + (i == dealer ? "·庄" : ""), selected: selected) {
+                                if selected {
+                                    tenpai.remove(i)
+                                } else {
+                                    tenpai.insert(i)
+                                }
+                            }
+                        }
+                    }
+
+                    Text(summaryNote)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.gray)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 14)
+
+                    if deltas != [0, 0, 0, 0] {
+                        SectionLabel("听牌罚符收付")
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                        DeltaGrid(game: game, deltas: deltas)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 16)
+            }
+            .bottomBar {
+                Button("记下流局") {
+                    onSave(tenpai)
+                    dismiss()
+                }
+                .buttonStyle(.primary)
+            }
+            .page()
+            .navigationTitle("这局流局")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                NavClose { dismiss() }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(30)
+        .presentationBackground(Theme.paper)
     }
 }

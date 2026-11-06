@@ -60,8 +60,8 @@ struct ShareCard: View {
                 Text(game.isFinished ? "打完了" : "打到\(game.handLabel)")
                     .font(.system(size: 26, weight: .semibold))
                     .tracking(-0.3)
-                Text(game.isFinished ? "一共 \(game.currentHandIndex) 局"
-                     : "打了 \(game.currentHandIndex) 局 · 还剩 \(game.remainingHands) 局")
+                Text(game.isFinished ? "一共 \(game.playedHandsCount) 局"
+                     : "打了 \(game.playedHandsCount) 局 · 还剩 \(game.remainingHands) 局")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
             }
@@ -170,8 +170,8 @@ extension Game {
     var shareText: String {
         let scores = self.scores
         var lines = [isFinished
-                     ? "立直日麻 \(startedAt.dayLabel) · 打完了，一共 \(currentHandIndex) 局"
-                     : "立直日麻 \(startedAt.dayLabel) · 打到\(handLabel)（打了 \(currentHandIndex) 局）"]
+                     ? "立直日麻 \(startedAt.dayLabel) · 打完了，一共 \(playedHandsCount) 局"
+                     : "立直日麻 \(startedAt.dayLabel) · 打到\(handLabel)（打了 \(playedHandsCount) 局）"]
         for player in Settlement.ranking(scores: scores) {
             lines.append("\(players[player].name) \(Theme.signed(scores[player])) 点（\(moneyText(scores[player]))）")
         }

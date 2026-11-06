@@ -20,6 +20,7 @@ struct EditHandSheet: View {
     @State private var discarder: Int?
     /// 手动改的番数（含花）；nil 表示按牌算或者沿用原来的番数。
     @State private var fanEdit: Int?
+    @State private var tenpai: Set<Int>
     @State private var offender: Int
     @State private var confirmDelete = false
 
@@ -36,21 +37,25 @@ struct EditHandSheet: View {
             _winner = State(initialValue: win.winner)
             _selfDrawn = State(initialValue: win.isSelfDrawn)
             _discarder = State(initialValue: win.discarder)
+            _tenpai = State(initialValue: [])
             _offender = State(initialValue: win.winner)
         case .falseWin(let offender):
             _kind = State(initialValue: .falseWin)
             _winner = State(initialValue: offender)
             _selfDrawn = State(initialValue: true)
+            _tenpai = State(initialValue: [])
             _offender = State(initialValue: offender)
-        case .drawn:
+        case .drawn(let tenpai):
             _kind = State(initialValue: .drawn)
             _winner = State(initialValue: 0)
             _selfDrawn = State(initialValue: true)
+            _tenpai = State(initialValue: tenpai)
             _offender = State(initialValue: 0)
         case .manual:
             _kind = State(initialValue: .manual)
             _winner = State(initialValue: 0)
             _selfDrawn = State(initialValue: true)
+            _tenpai = State(initialValue: [])
             _offender = State(initialValue: 0)
         }
     }
@@ -82,7 +87,7 @@ struct EditHandSheet: View {
             }
             return .win(win)
         case .drawn:
-            return .drawn
+            return .drawn(tenpai: tenpai)
         case .falseWin:
             return .falseWin(offender: offender)
         case .manual:
@@ -132,7 +137,7 @@ struct EditHandSheet: View {
 
                     switch kind {
                     case .win: winSection
-                    case .drawn: note("这局没人和，不计分。")
+                    case .drawn: drawnSection
                     case .falseWin: falseWinSection
                     case .manual: note("直接改的分不能在这里改。要重填就删掉这一局，再从右上角「直接改分」记一条。")
                     }
@@ -239,6 +244,30 @@ struct EditHandSheet: View {
             return flowers + "按拍下的牌自动算，换了谁和、自摸还是点炮会重算。要直接改就点加减。"
         }
         return flowers + "要改翻数就点加减。"
+    }
+
+    // MARK: 流局
+
+    @ViewBuilder
+    private var drawnSection: some View {
+        SectionLabel("哪几家听牌了（可多选）")
+            .padding(.top, 28)
+            .padding(.bottom, 10)
+        HStack(spacing: 8) {
+            ForEach(0..<4, id: \.self) { i in
+                let selected = tenpai.contains(i)
+                NameChip(name: game.players[i].name, selected: selected) {
+                    if selected {
+                        tenpai.remove(i)
+                    } else {
+                        tenpai.insert(i)
+                    }
+                }
+            }
+        }
+        note(tenpai.isEmpty || tenpai.count == 4
+             ? "全员不听或全员听牌不交换点数；庄家听牌则连庄，下一局加 1 本场。"
+             : "不听牌的家合计付 3000 点给听牌的家；庄家听牌则连庄，下一局加 1 本场。")
     }
 
     // MARK: 和错了

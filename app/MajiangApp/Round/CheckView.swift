@@ -378,7 +378,7 @@ struct CheckView: View {
             title = result.fanWithoutFlowers == 0
                 ? "无役，立直麻将至少要有 \(minimum) 翻役才能和"
                 : "只有 \(result.fanWithoutFlowers) 翻役，本场要 \(minimum) 翻才能和"
-            reason = Text("牌型没问题。如果这手立直了，在下面「立直与特殊情况」里勾上「立直」；宝牌每张加 1 翻，但不算进起和役。")
+            reason = Text("牌型没问题。如果这手立直了，在下面点一下「立直」；宝牌每张加 1 翻，但不算进起和役。")
         case .failure(.wrongTileCount):
             reason = Text("和牌一共 14 张（每个杠多 1 张），现在是 \(flow.hand.allTiles.count) 张。")
         case .failure(.tileMoreThanFour):
@@ -500,11 +500,15 @@ struct CheckView: View {
         .disabled(shapeBroken)
 
         VStack(spacing: 0) {
-            rareSection
-            if game.rules.includeFlowers {
+            if flow.isAvailable(.riichi) {
+                riichiRow
                 Hairline(color: Theme.lineSoft)
-                flowers
             }
+            if game.rules.includeFlowers {
+                flowers
+                Hairline(color: Theme.lineSoft)
+            }
+            rareSection
         }
         .block()
         .padding(.top, 22)
@@ -519,17 +523,105 @@ struct CheckView: View {
     }
 
     private var availableRare: [SpecialWin] { SpecialWin.allCases.filter { flow.isAvailable($0) } }
+    private var otherRareOptions: [SpecialWin] { availableRare.filter { $0 != .riichi } }
+
+    /// 立直是最常点的役：门前清时直接露在第一行，点一下就勾上；勾上后旁边直接给「一发」快捷钮。
+    private var riichiRow: some View {
+        let isRiichi = flow.specials.contains(.riichi)
+        let isDouble = flow.specials.contains(.doubleRiichi)
+        let isIppatsu = flow.specials.contains(.ippatsu)
+        let active = isRiichi || isDouble
+        return HStack(spacing: 12) {
+            Button {
+                if active {
+                    flow.specials.remove(.riichi)
+                    flow.specials.remove(.doubleRiichi)
+                    flow.specials.remove(.ippatsu)
+                } else {
+                    flow.specials.insert(.riichi)
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(isDouble ? "双立直" : "立直").font(.system(size: 16))
+                            Text("· \(isDouble ? 2 : 1) 翻")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Theme.gray)
+                        }
+                        if !model.isSeasoned {
+                            Text("门前清听牌后宣告立直").font(.system(size: 14)).foregroundStyle(Theme.gray)
+                        }
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if active {
+                Button {
+                    if isIppatsu {
+                        flow.specials.remove(.ippatsu)
+                    } else {
+                        flow.specials.insert(.ippatsu)
+                    }
+                } label: {
+                    Text(isIppatsu ? "一发 +1 翻 ✓" : "+ 一发")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(isIppatsu ? .white : Theme.ink)
+                        .padding(.horizontal, 10)
+                        .frame(height: 28)
+                        .background(isIppatsu ? Theme.vermilion : Theme.lineSoft, in: Capsule())
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button {
+                if active {
+                    flow.specials.remove(.riichi)
+                    flow.specials.remove(.doubleRiichi)
+                    flow.specials.remove(.ippatsu)
+                } else {
+                    flow.specials.insert(.riichi)
+                }
+            } label: {
+                ZStack {
+                    Circle().strokeBorder(Color(hex: 0xD6D2C7), lineWidth: 1.5).opacity(active ? 0 : 1)
+                    Circle().fill(Theme.ink).opacity(active ? 1 : 0)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .opacity(active ? 1 : 0)
+                }
+                .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("立直")
+            .accessibilityAddTraits(active ? .isSelected : [])
+        }
+        .frame(minHeight: 60)
+    }
+
+    private var rareSummaryText: String {
+        var parts = otherRareOptions.filter { flow.specials.contains($0) }.map(\.name)
+        let extraSticks = flow.riichiPlayers.subtracting([flow.winner]).count
+        if extraSticks > 0 {
+            parts.append("立直棒 ×\(extraSticks)")
+        }
+        return parts.isEmpty ? "没有" : parts.joined(separator: "、")
+    }
 
     @ViewBuilder
     private var rareSection: some View {
-        let chosen = availableRare.filter { flow.specials.contains($0) }
         Button {
             withAnimation(.easeOut(duration: 0.2)) { rareOpen.toggle() }
         } label: {
             HStack {
-                Text("立直与特殊情况").font(.system(size: 16))
+                Text("其他情况与立直棒").font(.system(size: 16))
                 Spacer()
-                Text((chosen.isEmpty ? "没有" : chosen.map(\.name).joined(separator: "、")) + (rareOpen ? " ⌃" : " ›"))
+                Text(rareSummaryText + (rareOpen ? " ⌃" : " ›"))
                     .font(.system(size: 15))
                     .foregroundStyle(Theme.gray)
             }
@@ -538,7 +630,28 @@ struct CheckView: View {
         }
         .buttonStyle(.plain)
         if rareOpen {
-            ForEach(availableRare, id: \.self) { special in
+            if flow.winnerChosen {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("还有哪家也立直了？（每家 +1000 点供托归和牌者）")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.gray)
+                    HStack(spacing: 8) {
+                        ForEach((0..<4).filter { $0 != flow.winner }, id: \.self) { i in
+                            let selected = flow.riichiPlayers.contains(i)
+                            ChoiceChip(title: game.players[i].name, selected: selected) {
+                                if selected {
+                                    flow.riichiPlayers.remove(i)
+                                } else {
+                                    flow.riichiPlayers.insert(i)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 12)
+                .overlay(alignment: .top) { Hairline(color: Theme.lineSoft) }
+            }
+            ForEach(otherRareOptions, id: \.self) { special in
                 let on = flow.specials.contains(special)
                 Button {
                     if on {

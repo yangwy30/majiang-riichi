@@ -55,7 +55,7 @@ struct HandDetailView: View {
     private func content(_ game: Game, record: HandRecord, win: WinRecord, number: Int) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("第 \(number) 局 · \(game.prevalentWind(ofHand: record.handIndex).name)场 · \(game.players[game.dealer(ofHand: record.handIndex)].name)坐庄")
+                Text("第 \(number) 局 · \(game.handTitle(for: record)) · \(game.players[game.dealer(ofHand: record.handIndex)].name)坐庄")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
                     .padding(.top, 6)
@@ -148,7 +148,7 @@ struct HandDetailView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 6)
                 DeltaGrid(game: game, deltas: record.deltas)
-                Text(game.paymentExplanation(win, deltas: record.deltas))
+                Text(game.paymentExplanation(win, honba: record.honba, deltas: record.deltas))
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
                     .lineSpacing(3)

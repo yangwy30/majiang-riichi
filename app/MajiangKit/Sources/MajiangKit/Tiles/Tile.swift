@@ -145,8 +145,8 @@ extension Tile {
         }
 
         for ch in text {
-            if let digit = ch.wholeNumberValue, (1...9).contains(digit) {
-                pendingRanks.append(digit)
+            if let digit = ch.wholeNumberValue, (0...9).contains(digit) {
+                pendingRanks.append(digit == 0 ? 5 : digit)
             } else if let index = chineseNumerals.firstIndex(of: String(ch)) {
                 pendingRanks.append(index + 1)
             } else if let suit = suitSuffix(ch) {

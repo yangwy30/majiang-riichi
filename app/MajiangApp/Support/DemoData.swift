@@ -67,7 +67,7 @@ enum DemoData {
         var active = Game(players: players, rules: houseRules)
         win(&active, winner: 0, discarder: nil, hand: "1112233445566p 7p")
         win(&active, winner: 2, discarder: 1, melds: [.pung(Tile(suit: .honors, rank: 6)!)], hand: "234m 345s 45p 88s 6p")
-        _ = try? active.recordDraw()
+        _ = try? active.recordDraw(tenpai: [0, 2])
         win(&active, winner: 3, discarder: nil, hand: "234m 456m 678m 东东东 99m")
         archive.upsert(active)
 
