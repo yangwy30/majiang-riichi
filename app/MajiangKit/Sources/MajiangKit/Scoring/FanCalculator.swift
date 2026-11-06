@@ -165,7 +165,10 @@ public enum FanCalculator {
 
         // 1. 国士无双
         if hand.melds.isEmpty && isKokushiShape(hand.concealed) {
-            let fans = [FanEntry(fan: .kokushi, count: 1)]
+            var fans = [FanEntry(fan: .kokushi, count: 1)]
+            if context.selfDrawn && context.lastTileOfItsKind {
+                fans.insert(FanEntry(fan: context.seatWind == .east ? .tenhou : .chiihou), at: 0)
+            }
             results.append(ScoringResult(fans: fans, flowerFan: 0, fu: 30))
         }
 
@@ -331,9 +334,16 @@ public enum FanCalculator {
 
     private static func scoreChiitoitsu(hand: Hand, context: WinContext) -> ScoringResult {
         let allTiles = hand.allTiles
+        var yakuman: [FanEntry] = []
+        if context.selfDrawn && hand.melds.isEmpty && context.lastTileOfItsKind {
+            yakuman.append(FanEntry(fan: context.seatWind == .east ? .tenhou : .chiihou))
+        }
         // 字一色（大七星）
         if allTiles.allSatisfy(\.isHonor) {
-            return ScoringResult(fans: [FanEntry(fan: .tsuuiisou)], flowerFan: 0, fu: 25)
+            yakuman.append(FanEntry(fan: .tsuuiisou))
+        }
+        if !yakuman.isEmpty {
+            return ScoringResult(fans: yakuman, flowerFan: 0, fu: 25)
         }
 
         var entries: [FanEntry] = []
@@ -467,7 +477,7 @@ public enum FanCalculator {
         }
 
         // 先检查役满
-        let yakuman = evaluateStandardYakuman(hand: hand, groups: groups, pair: pair, isMenzen: isMenzen)
+        let yakuman = evaluateStandardYakuman(hand: hand, groups: groups, pair: pair, isMenzen: isMenzen, context: context)
         if !yakuman.isEmpty {
             return ScoringResult(fans: yakuman, flowerFan: 0, fu: fu)
         }
@@ -570,9 +580,13 @@ public enum FanCalculator {
         hand: Hand,
         groups: [ResolvedGroup],
         pair: Tile,
-        isMenzen: Bool
+        isMenzen: Bool,
+        context: WinContext
     ) -> [FanEntry] {
         var yakuman: [FanEntry] = []
+        if context.selfDrawn && hand.melds.isEmpty && context.lastTileOfItsKind {
+            yakuman.append(FanEntry(fan: context.seatWind == .east ? .tenhou : .chiihou))
+        }
         let allTiles = hand.allTiles
         let triplets = Set(groups.compactMap(\.tripletTile))
         let ankouCount = groups.filter(\.isConcealedTriplet).count
@@ -631,7 +645,7 @@ public enum FanCalculator {
             } else if context.riichi {
                 entries.append(FanEntry(fan: .riichi))
             }
-            if (context.riichi || context.doubleRiichi) && context.ippatsu {
+            if (context.riichi || context.doubleRiichi) && context.ippatsu && !(context.kongInvolved && context.selfDrawn) {
                 entries.append(FanEntry(fan: .ippatsu))
             }
             if context.selfDrawn {

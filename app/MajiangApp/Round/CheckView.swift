@@ -636,7 +636,7 @@ struct CheckView: View {
             withAnimation(.easeOut(duration: 0.2)) { rareOpen.toggle() }
         } label: {
             HStack {
-                Text("其他情况与立直棒").font(.system(size: 16))
+                Text("其他").font(.system(size: 16))
                 Spacer()
                 Text(rareSummaryText + (rareOpen ? " ⌃" : " ›"))
                     .font(.system(size: 15))

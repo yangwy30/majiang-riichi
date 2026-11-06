@@ -22,6 +22,7 @@ struct EditHandSheet: View {
     @State private var fanEdit: Int?
     @State private var tenpai: Set<Int>
     @State private var riichi: Set<Int>
+    @State private var showRiichi = false
     @State private var offender: Int
     @State private var confirmDelete = false
 
@@ -275,25 +276,35 @@ struct EditHandSheet: View {
                 }
             }
         }
-        SectionLabel("这局有人立直吗（立直棒 1000 点留作供托）")
-            .padding(.top, 22)
-            .padding(.bottom, 10)
-        HStack(spacing: 8) {
-            ForEach(0..<4, id: \.self) { i in
-                let selected = riichi.contains(i)
-                NameChip(name: game.players[i].name, selected: selected) {
-                    if selected {
-                        riichi.remove(i)
-                    } else {
-                        riichi.insert(i)
-                        tenpai.insert(i)
-                    }
-                }
-            }
-        }
         note(tenpai.isEmpty || tenpai.count == 4
              ? "全员不听或全员听牌不交换听牌罚符；庄家听牌则连庄，下一局加 1 本场。"
              : "不听牌的家合计付 3000 点给听牌的家；庄家听牌则连庄，下一局加 1 本场。")
+        if showRiichi || !riichi.isEmpty {
+            SectionLabel("这局有人立直吗（立直棒 1000 点留作供托）")
+                .padding(.top, 22)
+                .padding(.bottom, 10)
+            HStack(spacing: 8) {
+                ForEach(0..<4, id: \.self) { i in
+                    let selected = riichi.contains(i)
+                    NameChip(name: game.players[i].name, selected: selected) {
+                        if selected {
+                            riichi.remove(i)
+                        } else {
+                            riichi.insert(i)
+                            tenpai.insert(i)
+                        }
+                    }
+                }
+            }
+        } else {
+            Button(tr("这局有人立直（留 1000 点供托棒）›",
+                      "リーチした人がいる（供託1000点）›",
+                      "Someone declared Riichi (+1000 pot) ›")) {
+                withAnimation(.easeOut(duration: 0.2)) { showRiichi = true }
+            }
+            .buttonStyle(.text(size: 14))
+            .padding(.top, 12)
+        }
     }
 
     // MARK: 和错了

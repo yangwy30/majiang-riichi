@@ -16,6 +16,8 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
     case lastTileClaim
     /// 抢杠：别人加杠时抢和，1 翻。
     case robbingTheKong
+    /// 天和 / 地和：第一巡无人吃碰杠时自摸和牌（庄家为天和，闲家为地和，役满）。
+    case blessingOfHeavenOrEarth
 
     public var name: String {
         switch self {
@@ -26,6 +28,7 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
         case .lastTileDraw: return tr("海底摸月", "海底摸月", "Haitei")
         case .lastTileClaim: return tr("河底捞鱼", "河底撈魚", "Houtei")
         case .robbingTheKong: return tr("抢杠", "槍槓", "Chankan")
+        case .blessingOfHeavenOrEarth: return tr("天和 / 地和", "天和・地和", "Tenhou / Chiihou")
         }
     }
 
@@ -38,6 +41,7 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
         case .lastTileDraw: return .haitei
         case .lastTileClaim: return .houtei
         case .robbingTheKong: return .chankan
+        case .blessingOfHeavenOrEarth: return .tenhou
         }
     }
 
@@ -54,6 +58,7 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
         case .lastTileDraw: return tr("摸牌山最后一张牌时自摸和了", "牌山の最後の1枚でツモ和了", "Self-drawn win on the last tile of the wall")
         case .lastTileClaim: return tr("和的是别人打出的最后一张牌", "河の最後の打牌でロン和了", "Won by ron on the very last discard")
         case .robbingTheKong: return tr("别人加杠时，正好抢和他加的那张", "他家の加槓牌でロン和了", "Won off a tile another player added to an open pung")
+        case .blessingOfHeavenOrEarth: return tr("第一巡还没人吃碰杠时直接自摸和牌（役满）", "第1ツモでそのままツモ和了（役満）", "First-turn self-drawn win with no prior calls (Yakuman)")
         }
     }
 
@@ -80,19 +85,25 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
                 "手牌に \(hand.winningTile.displayName) が \(ownCopies) 枚あるため加槓できません",
                 "Already \(ownCopies) copies of \(hand.winningTile.displayName) in hand"
             ) : nil
+        case .blessingOfHeavenOrEarth:
+            guard selfDrawn && hand.melds.isEmpty else {
+                return tr("天和 / 地和只能是门前清无杠自摸", "天和・地和は門前ツモ（槓なし）のみです", "Tenhou / Chiihou requires a closed Tsumo with no kans")
+            }
+            return nil
         }
     }
 
     /// 跟这一项不能同时选的（选了新的就把冲突的旧项替掉）。
     public var conflicts: Set<SpecialWin> {
         switch self {
-        case .riichi: return [.doubleRiichi]
-        case .doubleRiichi: return [.riichi]
-        case .ippatsu: return []
-        case .kongReplacement: return [.lastTileDraw, .lastTileClaim, .robbingTheKong]
-        case .lastTileDraw: return [.kongReplacement, .lastTileClaim, .robbingTheKong]
-        case .lastTileClaim: return [.kongReplacement, .lastTileDraw, .robbingTheKong]
-        case .robbingTheKong: return [.kongReplacement, .lastTileDraw, .lastTileClaim]
+        case .riichi: return [.doubleRiichi, .blessingOfHeavenOrEarth]
+        case .doubleRiichi: return [.riichi, .blessingOfHeavenOrEarth]
+        case .ippatsu: return [.kongReplacement, .blessingOfHeavenOrEarth]
+        case .kongReplacement: return [.ippatsu, .lastTileDraw, .lastTileClaim, .robbingTheKong, .blessingOfHeavenOrEarth]
+        case .lastTileDraw: return [.kongReplacement, .lastTileClaim, .robbingTheKong, .blessingOfHeavenOrEarth]
+        case .lastTileClaim: return [.kongReplacement, .lastTileDraw, .robbingTheKong, .blessingOfHeavenOrEarth]
+        case .robbingTheKong: return [.kongReplacement, .lastTileDraw, .lastTileClaim, .blessingOfHeavenOrEarth]
+        case .blessingOfHeavenOrEarth: return [.riichi, .doubleRiichi, .ippatsu, .kongReplacement, .lastTileDraw, .lastTileClaim, .robbingTheKong]
         }
     }
 
@@ -102,10 +113,15 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
         context.ippatsu = set.contains(.ippatsu)
         context.lastTileOfWall = set.contains(.lastTileDraw) || set.contains(.lastTileClaim)
         context.kongInvolved = set.contains(.kongReplacement) || set.contains(.robbingTheKong)
+        context.lastTileOfItsKind = set.contains(.blessingOfHeavenOrEarth)
     }
 
     public static func from(_ context: WinContext) -> Set<SpecialWin> {
         var result: Set<SpecialWin> = []
+        if context.lastTileOfItsKind {
+            result.insert(.blessingOfHeavenOrEarth)
+            return result
+        }
         if context.doubleRiichi {
             result.insert(.doubleRiichi)
         } else if context.riichi {

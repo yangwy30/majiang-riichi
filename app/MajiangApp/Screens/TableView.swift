@@ -450,12 +450,13 @@ private struct DrawHandSheet: View {
 
     @State private var tenpai: Set<Int>
     @State private var riichi: Set<Int>
+    @State private var showRiichi = false
 
     init(game: Game, onSave: @escaping (Set<Int>, Set<Int>) -> Void) {
         self.game = game
         self.onSave = onSave
         _tenpai = State(initialValue: DemoScreen.current == .draw ? [0, 2] : [])
-        _riichi = State(initialValue: DemoScreen.current == .draw ? [0] : [])
+        _riichi = State(initialValue: [])
     }
 
     private var effectiveTenpai: Set<Int> { tenpai.union(riichi) }
@@ -525,29 +526,39 @@ private struct DrawHandSheet: View {
                         }
                     }
 
-                    SectionLabel("这局有人立直吗（立直棒 1000 点留作供托）")
-                        .padding(.top, 20)
-                        .padding(.bottom, 10)
-                    HStack(spacing: 8) {
-                        ForEach(0..<4, id: \.self) { i in
-                            let selected = riichi.contains(i)
-                            NameChip(name: game.players[i].name, selected: selected) {
-                                if selected {
-                                    riichi.remove(i)
-                                } else {
-                                    riichi.insert(i)
-                                    tenpai.insert(i)
-                                }
-                            }
-                        }
-                    }
-
                     Text(summaryNote)
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 14)
+
+                    if showRiichi || !riichi.isEmpty {
+                        SectionLabel("这局有人立直吗（立直棒 1000 点留作供托）")
+                            .padding(.top, 20)
+                            .padding(.bottom, 10)
+                        HStack(spacing: 8) {
+                            ForEach(0..<4, id: \.self) { i in
+                                let selected = riichi.contains(i)
+                                NameChip(name: game.players[i].name, selected: selected) {
+                                    if selected {
+                                        riichi.remove(i)
+                                    } else {
+                                        riichi.insert(i)
+                                        tenpai.insert(i)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Button(tr("这局有人立直（留 1000 点供托棒）›",
+                                  "リーチした人がいる（供託1000点）›",
+                                  "Someone declared Riichi (+1000 pot) ›")) {
+                            withAnimation(.easeOut(duration: 0.2)) { showRiichi = true }
+                        }
+                        .buttonStyle(.text(size: 14))
+                        .padding(.top, 12)
+                    }
 
                     if deltas != [0, 0, 0, 0] {
                         SectionLabel("本局点数变动")
@@ -573,7 +584,7 @@ private struct DrawHandSheet: View {
                 NavClose { dismiss() }
             }
         }
-        .presentationDetents([.height(540), .large])
+        .presentationDetents([.height(460), .large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(30)
         .presentationBackground(Theme.paper)
