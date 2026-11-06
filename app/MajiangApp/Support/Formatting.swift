@@ -230,6 +230,13 @@ extension GameRules {
         if fanCap > 0 {
             parts.append(tr("封顶 \(fanCap) 翻", "\(fanCap)翻打ち止め", "\(fanCap)-Han Cap"))
         }
+        if !allowKuitan {
+            parts.append(tr("无喰断", "喰いタンなし", "Closed Tanyao"))
+        }
+        if uma > 0 {
+            let second = uma == 10 ? 5 : 10
+            parts.append(tr("顺位马 \(second)-\(uma)", "ウマ\(second)-\(uma)", "Uma \(second)-\(uma)"))
+        }
         if !includeFlowers {
             parts.append(tr("不计宝牌", "ドラなし", "No Dora"))
         }

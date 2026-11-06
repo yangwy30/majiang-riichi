@@ -309,31 +309,73 @@ private struct EditTarget: Identifiable {
 }
 
 /// 方桌：我（开局时填在第一行的人）在下面，下家在右，对家在上，上家在左。
+/// 中央采用日本立直麻将电投桌风格深胜色中控盘，显示局顺（東三局）、本场数与立直供托棒（—•—）。
 private struct TableDiagram: View {
     var game: Game
     var compact = false
+
+    private func handKanji(_ hand: Int) -> String {
+        ["一", "二", "三", "四"][hand % 4]
+    }
 
     var body: some View {
         let hand = game.displayHand
         let seating = game.seating(ofRound: game.roundIndex(ofHand: hand))
         let me = game.position(of: game.me, inHand: hand)
         let at = { (offset: Int) in seating[(me + offset) % 4] }
+        let wind = game.prevalentWind(ofHand: hand).name
         ZStack {
-            VStack(spacing: 6) {
-                Text(game.prevalentWind(ofHand: hand).name)
-                    .font(Theme.serif(compact ? 48 : 56))
-                Text(game.isFinished ? "打完了" : game.tableCenterSubtitle)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.gray)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+            VStack(spacing: compact ? 8 : 12) {
+                Text(game.rules.totalHands == 4
+                     ? tr("东风战", "東風戦", "EAST ONLY")
+                     : tr("半庄战", "半荘戦", "HANCHAN"))
+                    .font(.system(size: 11, weight: .medium))
+                    .tracking(1.2)
+                    .foregroundStyle(Color.white.opacity(0.52))
+
+                if game.isFinished {
+                    Text(tr("终局", "終局", "Finished"))
+                        .font(Theme.serif(compact ? 30 : 36))
+                        .foregroundStyle(Theme.tileFace)
+                } else {
+                    Text(tr("\(wind)\(handKanji(hand))局",
+                            "\(wind)\(handKanji(hand))局",
+                            "\(wind) \(hand % 4 + 1)"))
+                        .font(Theme.serif(compact ? 30 : 36))
+                        .foregroundStyle(Theme.tileFace)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
+                HStack(spacing: 8) {
+                    Text(tr("\(game.currentHonba)本场", "\(game.currentHonba)本場", "\(game.currentHonba) Honba"))
+                        .font(.system(size: 12, weight: .medium).monospacedDigit())
+                        .foregroundStyle(Color.white.opacity(0.88))
+                    Rectangle()
+                        .fill(Color.white.opacity(0.2))
+                        .frame(width: 1, height: 10)
+                    HStack(spacing: 4) {
+                        RiichiStickIcon(width: 20, height: 5, borderColor: .clear)
+                            .opacity(game.currentPot > 0 ? 1 : 0.6)
+                        Text("×\(game.currentPot / 1000)")
+                            .font(.system(size: 12, weight: game.currentPot > 0 ? .semibold : .regular).monospacedDigit())
+                            .foregroundStyle(game.currentPot > 0 ? Color(hex: 0xFF8A80) : Color.white.opacity(0.6))
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.white.opacity(0.09), in: Capsule())
             }
-            .frame(width: compact ? 140 : 168, height: compact ? 140 : 168)
+            .frame(width: compact ? 148 : 174, height: compact ? 148 : 174)
             .background {
-                RoundedRectangle(cornerRadius: compact ? 22 : 26, style: .continuous)
-                    .fill(Theme.white)
-                    .shadow(color: Theme.ink.opacity(0.04), radius: 1, y: 1)
-                    .shadow(color: Theme.ink.opacity(0.05), radius: 12, y: 8)
+                RoundedRectangle(cornerRadius: compact ? 24 : 28, style: .continuous)
+                    .fill(Theme.ink)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: compact ? 20 : 24, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.11), lineWidth: 1)
+                            .padding(5)
+                    )
+                    .shadow(color: Theme.ink.opacity(0.16), radius: 14, y: 8)
             }
 
             SeatLabel(game: game, player: at(2), hand: hand, alignment: .center)

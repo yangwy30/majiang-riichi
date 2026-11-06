@@ -30,6 +30,10 @@ public struct GameRules: Hashable, Codable, Sendable {
     public var totalHands: Int = 8
     /// 封顶：一把最多按几翻算（含宝牌），0 为不封顶（13 翻以上累计役满）。
     public var fanCap: Int = 0
+    /// 副露断幺九（喰断）：默认 true（允许吃碰后断幺九）；false 时断幺九必须门前清。
+    public var allowKuitan: Bool = true
+    /// 终局顺位马（ウマ）：0 为不设，10 为 5-10（±10000 / ±5000），20 为 10-20（±20000 / ±10000），30 为 10-30（±30000 / ±10000）。
+    public var uma: Int = 0
     /// 立直麻将荣和由放铳者一家包付。
     public var onlyDiscarderPays: Bool = true
 
@@ -64,7 +68,7 @@ public struct GameRules: Hashable, Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case yuanPerPoint, basePoints, minimumFan, includeFlowers, kiriageMangan
-        case swapSeatsEachRound, falseWinPenalty, totalHands, fanCap, onlyDiscarderPays
+        case swapSeatsEachRound, falseWinPenalty, totalHands, fanCap, allowKuitan, uma, onlyDiscarderPays
     }
 
     /// 缺的字段用默认值，以后加规则不会让旧存档读不出来。
@@ -80,6 +84,8 @@ public struct GameRules: Hashable, Codable, Sendable {
         falseWinPenalty = try c.decodeIfPresent(Int.self, forKey: .falseWinPenalty) ?? d.falseWinPenalty
         totalHands = try c.decodeIfPresent(Int.self, forKey: .totalHands) ?? d.totalHands
         fanCap = try c.decodeIfPresent(Int.self, forKey: .fanCap) ?? d.fanCap
+        allowKuitan = try c.decodeIfPresent(Bool.self, forKey: .allowKuitan) ?? d.allowKuitan
+        uma = try c.decodeIfPresent(Int.self, forKey: .uma) ?? d.uma
         onlyDiscarderPays = try c.decodeIfPresent(Bool.self, forKey: .onlyDiscarderPays) ?? d.onlyDiscarderPays
     }
 }
@@ -402,20 +408,31 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
 
     public func seatWind(of player: Int) -> Wind { seatWind(of: player, inHand: currentHandIndex) }
 
-    /// 当前局某个玩家和牌时的 WinContext（场风、自风已经填好）。
+    /// 当前局某个玩家和牌时的 WinContext（场风、自风、喰断已经填好）。
     public func winContext(for winner: Int) -> WinContext {
-        WinContext(prevalentWind: prevalentWind, seatWind: seatWind(of: winner))
+        WinContext(prevalentWind: prevalentWind, seatWind: seatWind(of: winner), allowKuitan: rules.allowKuitan)
     }
 
     // MARK: 分数
 
-    /// 每个人的累计净得失点。终局时若桌面仍有未收走的立直供托棒，按日麻标准规则（トップ取り）归第一名。
+    /// 每个人的累计净得失点。终局时若桌面仍有未收走的立直供托棒，按日麻标准规则（トップ取り）归第一名；若设有顺位马（ウマ），终局时按名次加减。
     public var scores: [Int] {
         var total = records.reduce(into: [0, 0, 0, 0]) { acc, record in
             for i in 0..<4 { acc[i] += record.deltas[i] }
         }
-        if isFinished && currentPot > 0, let top = Settlement.ranking(scores: total).first {
-            total[top] += currentPot
+        if isFinished {
+            if currentPot > 0, let top = Settlement.ranking(scores: total).first {
+                total[top] += currentPot
+            }
+            if rules.uma > 0 {
+                let ranked = Settlement.ranking(scores: total)
+                let topBonus = rules.uma * 1000
+                let secondBonus = (rules.uma == 10 ? 5 : 10) * 1000
+                let bonuses = [topBonus, secondBonus, -secondBonus, -topBonus]
+                for (rank, player) in ranked.enumerated() where rank < 4 {
+                    total[player] += bonuses[rank]
+                }
+            }
         }
         return total
     }
@@ -554,6 +571,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         context.prevalentWind = prevalentWind(ofHand: hand)
         context.seatWind = seatWind(of: win.winner, inHand: hand)
         context.selfDrawn = win.isSelfDrawn
+        context.allowKuitan = rules.allowKuitan
         if context.selfDrawn != win.context.selfDrawn {
             context.kongInvolved = false
             context.lastTileOfWall = false

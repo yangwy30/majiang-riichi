@@ -3,21 +3,21 @@ import MajiangKit
 import SwiftUI
 import UIKit
 
-/// 视觉「墨与朱」：纸白底、墨色字，整个 App 只用一种朱红（庄的印章、赢的分数、和牌相关的提示）。删除和报错也用墨色，不用朱红。
-/// 输的分数用墨色加负号，不用红绿。
+/// 视觉「勝色与朱」：三桠和纸底（#F3F4F0）、深胜色靛蓝墨字（#16202E）、立直棒朱红（#C9372C）。
+/// 整个 App 只用一种朱红（亲家印章、赢的点数、满贯以上段位印章、立直棒红点）。输的分数用深胜色加负号，不用红绿。
 enum Theme {
-    static let paper = Color(hex: 0xF7F6F2)
+    static let paper = Color(hex: 0xF3F4F0)
     static let white = Color.white
-    static let line = Color(hex: 0xE7E4DC)
+    static let line = Color(hex: 0xDFE2DC)
     /// 白色块里面的分隔线。
-    static let lineSoft = Color(hex: 0xEFECE6)
-    static let gray = Color(hex: 0x6E6C64)
-    static let faint = Color(hex: 0xA8A59C)
-    static let ink = Color(hex: 0x16150F)
-    static let vermilion = Color(hex: 0xC23B22)
-    static let segment = Color(hex: 0xECEAE3)
+    static let lineSoft = Color(hex: 0xE8EBE5)
+    static let gray = Color(hex: 0x646D78)
+    static let faint = Color(hex: 0x9CA4AE)
+    static let ink = Color(hex: 0x16202E)
+    static let vermilion = Color(hex: 0xC9372C)
+    static let segment = Color(hex: 0xE5E8E2)
     /// 拍照页的底色。
-    static let darkroom = Color(hex: 0x0F0F0D)
+    static let darkroom = Color(hex: 0x0F151E)
 
     /// 页面内容最宽多少（含两边 24 的留白）。iPhone Duo 内屏有 669 点宽、横过来 951 点，
     /// 字和按钮不铺满，收在中间一栏，跟在普通 iPhone 上看到的比例差不多。窄屏上不起作用。
@@ -282,6 +282,45 @@ struct Seal: View {
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(Theme.vermilion, in: RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
+    }
+}
+
+/// 千点立直棒小图标：白底细长圆角棒 + 中央朱红圆点（—•—）。
+struct RiichiStickIcon: View {
+    var width: CGFloat = 34
+    var height: CGFloat = 7
+    var borderColor: Color = Theme.line
+
+    var body: some View {
+        ZStack {
+            Capsule()
+                .fill(Theme.tileFace)
+                .frame(width: width, height: height)
+                .overlay(Capsule().strokeBorder(borderColor, lineWidth: 0.8))
+            Circle()
+                .fill(Theme.vermilion)
+                .frame(width: height * 0.64, height: height * 0.64)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// 满贯 / 跳满 / 倍满 / 三倍满 / 役满 的朱红方框印章标签。
+struct LimitStamp: View {
+    var text: String
+    var size: CGFloat = 15
+
+    var body: some View {
+        Text(text)
+            .font(Theme.serif(size, semibold: true))
+            .foregroundStyle(Theme.vermilion)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Theme.vermilion.opacity(0.08), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Theme.vermilion.opacity(0.45), lineWidth: 1)
+            )
     }
 }
 

@@ -19,6 +19,8 @@ public struct WinContext: Hashable, Codable, Sendable {
     public var kongInvolved: Bool
     /// 宝牌总数（含表宝牌、赤宝牌、里宝牌）。每张 +1 翻，不算进起和役。
     public var flowerCount: Int
+    /// 是否允许副露断幺九（喰断）。默认 true。
+    public var allowKuitan: Bool
 
     public init(
         prevalentWind: Wind = .east,
@@ -30,7 +32,8 @@ public struct WinContext: Hashable, Codable, Sendable {
         lastTileOfWall: Bool = false,
         lastTileOfItsKind: Bool = false,
         kongInvolved: Bool = false,
-        flowerCount: Int = 0
+        flowerCount: Int = 0,
+        allowKuitan: Bool = true
     ) {
         self.prevalentWind = prevalentWind
         self.seatWind = seatWind
@@ -42,11 +45,12 @@ public struct WinContext: Hashable, Codable, Sendable {
         self.lastTileOfItsKind = lastTileOfItsKind
         self.kongInvolved = kongInvolved
         self.flowerCount = flowerCount
+        self.allowKuitan = allowKuitan
     }
 
     enum CodingKeys: String, CodingKey {
         case prevalentWind, seatWind, selfDrawn, riichi, doubleRiichi, ippatsu
-        case lastTileOfWall, lastTileOfItsKind, kongInvolved, flowerCount
+        case lastTileOfWall, lastTileOfItsKind, kongInvolved, flowerCount, allowKuitan
     }
 
     public init(from decoder: Decoder) throws {
@@ -61,6 +65,7 @@ public struct WinContext: Hashable, Codable, Sendable {
         lastTileOfItsKind = try c.decodeIfPresent(Bool.self, forKey: .lastTileOfItsKind) ?? false
         kongInvolved = try c.decodeIfPresent(Bool.self, forKey: .kongInvolved) ?? false
         flowerCount = try c.decodeIfPresent(Int.self, forKey: .flowerCount) ?? 0
+        allowKuitan = try c.decodeIfPresent(Bool.self, forKey: .allowKuitan) ?? true
     }
 }
 
@@ -349,7 +354,7 @@ public enum FanCalculator {
         var entries: [FanEntry] = []
         appendSituationalYaku(to: &entries, isMenzen: true, context: context)
         entries.append(FanEntry(fan: .chiitoitsu))
-        appendAllTileYaku(to: &entries, allTiles: allTiles, isMenzen: true, isStandard: false)
+        appendAllTileYaku(to: &entries, allTiles: allTiles, isMenzen: true, allowKuitan: context.allowKuitan, isStandard: false)
 
         let sorted = entries.sorted { ($0.points, -$0.fan.rawValue) > ($1.points, -$1.fan.rawValue) }
         let dora = max(0, context.flowerCount)
@@ -558,7 +563,7 @@ public enum FanCalculator {
         }
 
         // 整手牌相关役（断幺九、混老头、混一色、清一色）
-        appendAllTileYaku(to: &entries, allTiles: allTiles, isMenzen: isMenzen, isStandard: true)
+        appendAllTileYaku(to: &entries, allTiles: allTiles, isMenzen: isMenzen, allowKuitan: context.allowKuitan, isStandard: true)
 
         // 纯全带幺九 / 混全带幺九（必须至少有一组顺子，否则是清老头或混老头）
         if !chows.isEmpty {
@@ -659,8 +664,8 @@ public enum FanCalculator {
         }
     }
 
-    private static func appendAllTileYaku(to entries: inout [FanEntry], allTiles: [Tile], isMenzen: Bool, isStandard: Bool) {
-        if allTiles.allSatisfy(\.isSimple) {
+    private static func appendAllTileYaku(to entries: inout [FanEntry], allTiles: [Tile], isMenzen: Bool, allowKuitan: Bool, isStandard: Bool) {
+        if allTiles.allSatisfy(\.isSimple) && (isMenzen || allowKuitan) {
             entries.append(FanEntry(fan: .tanyao))
         }
         if allTiles.allSatisfy(\.isTerminalOrHonor) && !allTiles.allSatisfy(\.isTerminal) && !allTiles.allSatisfy(\.isHonor) {

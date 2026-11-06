@@ -63,6 +63,8 @@ struct HandDetailView: View {
                     .foregroundStyle(Theme.gray)
                     .padding(.top, 6)
 
+                let paid = game.rules.paidFan(win)
+                let limit = Payment.limitName(han: paid, fu: win.fu, kiriageMangan: game.rules.kiriageMangan)
                 HStack(alignment: .firstTextBaseline) {
                     Text(win.isSelfDrawn
                          ? tr("\(game.players[win.winner].name)自摸", "\(game.players[win.winner].name) ツモ", "\(game.players[win.winner].name) Tsumo")
@@ -72,7 +74,11 @@ struct HandDetailView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Spacer(minLength: 12)
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        if let limit {
+                            LimitStamp(text: limit, size: 14)
+                                .alignmentGuide(.firstTextBaseline) { d in d[.bottom] - 3 }
+                        }
                         Text("\(win.totalFan)")
                             .font(.system(size: 46, weight: .ultraLight).monospacedDigit())
                             .tracking(-1)

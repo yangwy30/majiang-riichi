@@ -98,7 +98,7 @@ struct HomeView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("拍照算番")
+                Text(tr("日麻算番", "麻雀カメラ計算", "Riichi Scorer"))
                     .font(.system(size: 34, weight: .semibold))
                     .tracking(-0.5)
                     #if DEBUG
@@ -110,10 +110,13 @@ struct HomeView: View {
             }
             // 记过几手就不用再说 App 是干什么的
             if !model.isSeasoned {
-                Text("打完一手，拍一下和牌的人的牌，App 帮你算番记账。")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Theme.gray)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    RiichiStickIcon(width: 30, height: 6)
+                    Text("打完一手，拍一下和牌的人的牌，App 帮你算番记账。")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.gray)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -242,10 +245,33 @@ private struct MoreSheet: View {
 private struct ActiveGameCard: View {
     var game: Game
 
+    private var shortHandBadge: String {
+        let hand = game.displayHand
+        let wind = game.prevalentWind(ofHand: hand).name
+        let num = ["一", "二", "三", "四"][hand % 4]
+        let base = tr("\(wind)\(num)局", "\(wind)\(num)局", "\(wind) \(hand % 4 + 1)")
+        guard game.currentHonba > 0 else { return base }
+        return base + tr(" · \(game.currentHonba)本场", "・\(game.currentHonba)本場", " · \(game.currentHonba) Honba")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(game.handLabel).font(.system(size: 17, weight: .semibold))
+            HStack(alignment: .center, spacing: 10) {
+                Text(shortHandBadge)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 5)
+                    .background(Theme.ink, in: Capsule())
+                if game.currentPot > 0 {
+                    HStack(spacing: 4) {
+                        RiichiStickIcon(width: 24, height: 6)
+                        Text("×\(game.currentPot / 1000)")
+                            .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(Theme.vermilion)
+                    }
+                }
                 Spacer()
                 Text("继续 ›").font(.system(size: 15)).foregroundStyle(Theme.gray)
             }
@@ -268,6 +294,10 @@ private struct ActiveGameCard: View {
         }
         .padding(.vertical, 20)
         .block(radius: 22)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Theme.line, lineWidth: 1)
+        )
         .contentShape(Rectangle())
     }
 }
@@ -317,10 +347,10 @@ private struct EmptyHome<More: View>: View {
         GeometryReader { geo in
             // 安全区以下留 38，离屏幕顶约 100；SE、iPhone Duo 外屏这种矮屏只留 22，三步也排紧一点，免得第三步被按钮切掉
             let short = geo.size.height < 560
-            let topInset: CGFloat = short ? 22 : 38
+            let topInset: CGFloat = short ? 22 : 34
             ScrollView {
                 // 品牌标在顶上；标题和步骤作为一块往下放，剩下的空白上 : 下 ≈ 5 : 3，两段都至少 32（矮屏 20）
-                FiveThreeLayout(height: geo.size.height - topInset, minGap: short ? 20 : 32) {
+                FiveThreeLayout(height: geo.size.height - topInset, minGap: short ? 18 : 28) {
                     HStack(alignment: .center) {
                         brand
                         Spacer()
@@ -328,10 +358,10 @@ private struct EmptyHome<More: View>: View {
                     }
                     VStack(alignment: .leading, spacing: 0) {
                         headline
-                        steps(rowPadding: short ? 14 : 24).padding(.top, short ? 24 : 40)
+                        steps(rowPadding: short ? 12 : 16).padding(.top, short ? 20 : 28)
                     }
                 }
-                .padding(.horizontal, 28)
+                .padding(.horizontal, 24)
                 .padding(.top, topInset)
             }
         }
@@ -350,13 +380,16 @@ private struct EmptyHome<More: View>: View {
 
 private extension EmptyHome {
     var brand: some View {
-        HStack(spacing: 12) {
-            Text("和")
-                .font(Theme.serif(17))
-                .foregroundStyle(.white)
-                .frame(width: 30, height: 30)
-                .background(Theme.vermilion, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            Text("拍照算番").font(.system(size: 17, weight: .semibold))
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Theme.ink)
+                    .frame(width: 32, height: 32)
+                Text("立")
+                    .font(Theme.serif(16))
+                    .foregroundStyle(.white)
+            }
+            Text(tr("日麻算番", "麻雀カメラ計算", "Riichi Scorer")).font(.system(size: 17, weight: .semibold))
         }
         .accessibilityElement(children: .combine)
         #if DEBUG
@@ -366,34 +399,43 @@ private extension EmptyHome {
     }
 
     var headline: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("拍一下，")
-            Text("番和钱都算好。")
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("拍一下，")
+                Text("番和钱都算好。")
+            }
+            .font(Theme.serif(32, semibold: true))
+            HStack(spacing: 8) {
+                RiichiStickIcon(width: 36, height: 7)
+                Text(tr("日本立直麻将 · 拍照算点与四人记账", "リーチ麻雀・カメラ点数計算＆4人スコア帳", "Japanese Riichi Mahjong · Camera Scorer & Ledger"))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.gray)
+            }
         }
-        .font(Theme.serif(32, semibold: true))
     }
 
     func steps(rowPadding: CGFloat) -> some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 10) {
             StepRow(number: "一", title: "拍", detail: "和牌的人把牌推倒，拍一张", padding: rowPadding) {
                 HStack(spacing: 2) {
-                    ForEach(Array(Tile.parseList("12355p").enumerated()), id: \.offset) { _, tile in
+                    ForEach(Array(Tile.parseList("12305p").enumerated()), id: \.offset) { _, tile in
                         TileFace(tile: tile, width: 16)
                     }
                 }
             }
             StepRow(number: "二", title: "算", detail: "认出牌，算役、翻、符与点数", padding: rowPadding) {
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text("8").font(Theme.score(30, weight: .ultraLight))
-                    Text("翻").font(Theme.serif(13, semibold: true))
+                HStack(alignment: .center, spacing: 6) {
+                    Text(tr("8翻", "8翻", "8 han"))
+                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                    LimitStamp(text: tr("倍满", "倍満", "Baiman"), size: 13)
                 }
             }
             StepRow(number: "三", title: "记", detail: "谁给谁多少点，自动记账", padding: rowPadding) {
                 VStack(alignment: .trailing, spacing: 0) {
-                    Text("+8000").foregroundStyle(Theme.vermilion)
-                    Text("−4000").foregroundStyle(Theme.ink)
+                    Text("+16000").foregroundStyle(Theme.vermilion)
+                    Text("−8000").foregroundStyle(Theme.ink)
                 }
-                .font(Theme.score(15))
+                .font(Theme.score(14, weight: .regular))
             }
         }
     }
@@ -424,39 +466,39 @@ private struct FiveThreeLayout: Layout {
     }
 }
 
-/// 三步里的一行：朱红数字、标题和说明、右边一个小样。
+/// 三步里的一张卡片：深胜色小方印、标题和说明、右边一个小样。
 private struct StepRow<Sample: View>: View {
     var number: String
-    var title: String
-    var detail: String
+    var title: LocalizedStringKey
+    var detail: LocalizedStringKey
     /// 每行上下的留白，矮屏小一点。
-    var padding: CGFloat = 24
+    var padding: CGFloat = 16
     @ViewBuilder var sample: Sample
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                // 数字放进描边小方印，单独一笔的「一」才不像破折号
-                Text(number)
-                    .font(Theme.serif(15, semibold: true))
-                    .foregroundStyle(Theme.vermilion)
-                    .frame(width: 26, height: 26)
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.vermilion, lineWidth: 1))
-                    .frame(width: 28, alignment: .leading)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 17, weight: .semibold))
-                    Text(detail)
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.gray)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                }
-                .padding(.leading, 6)
-                Spacer(minLength: 12)
-                sample.accessibilityHidden(true)
+        HStack(spacing: 10) {
+            Text(number)
+                .font(Theme.serif(14, semibold: true))
+                .foregroundStyle(.white)
+                .frame(width: 26, height: 26)
+                .background(Theme.ink, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 16, weight: .semibold))
+                Text(detail)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.gray)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
-            .padding(.vertical, padding)
-            Hairline()
+            Spacer(minLength: 8)
+            sample.accessibilityHidden(true)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, padding)
+        .background(Theme.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Theme.lineSoft, lineWidth: 1)
+        )
     }
 }

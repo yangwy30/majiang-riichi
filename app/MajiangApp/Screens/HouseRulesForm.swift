@@ -254,12 +254,12 @@ private struct RulePicker: View {
 
 enum RuleItem: String, Identifiable, CaseIterable {
     case rate, rounds, minimum, flowers, base
-    case cap, penalty, swap
+    case uma, kuitan, cap, penalty, swap
 
     var id: String { rawValue }
 
     static let main: [RuleItem] = [.rate, .rounds, .minimum, .flowers, .base]
-    static let more: [RuleItem] = [.cap, .penalty, .swap]
+    static let more: [RuleItem] = [.uma, .kuitan, .cap, .penalty, .swap]
 
     var title: String {
         switch self {
@@ -268,6 +268,8 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .minimum: return tr("起和", "翻縛り", "Min Yaku Han")
         case .flowers: return tr("宝牌", "ドラ", "Dora")
         case .base: return tr("切上满贯", "切り上げ満貫", "Kiriage Mangan")
+        case .uma: return tr("顺位马（ウマ）", "順位戦ウマ", "Placement Uma")
+        case .kuitan: return tr("副露断幺九（喰断）", "喰いタン", "Open Tanyao (Kuitan)")
         case .cap: return tr("封顶", "翻数上限", "Han Cap")
         case .penalty: return tr("错和罚符", "チョンボ罰符", "Chombo Penalty")
         case .swap: return tr("每圈换座", "場風ごと席替え", "Swap Seats")
@@ -281,7 +283,7 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .minimum: return tr("至少几翻役才能和（宝牌不算）", "和了に必要な役の翻数（ドラ除く）", "Minimum yaku han required to win (excl. Dora)")
         case .flowers: return tr("表宝、赤宝、里宝每张 1 翻", "表ドラ・赤ドラ・裏ドラ各1翻", "Dora, Red 5 & Ura-dora add +1 han each")
         case .base: return tr("30 符 4 翻、60 符 3 翻按满贯算", "30符4翻・60符3翻を満貫とする", "Round 30 fu 4 han & 60 fu 3 han up to Mangan")
-        case .cap, .penalty, .swap: return ""
+        case .uma, .kuitan, .cap, .penalty, .swap: return ""
         }
     }
 
@@ -302,6 +304,12 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .base: return tr("标准规则下 30 符 4 翻和 60 符 3 翻是 7700 / 11600 点；开启切上满贯后直接按满贯 8000 / 12000 点算。",
                               "通常30符4翻・60符3翻は7700/11600点ですが、切り上げ満貫をオンにすると8000/12000点になります。",
                               "Normally 30 fu 4 han and 60 fu 3 han pay 7,700 / 11,600 pts; Kiriage Mangan rounds them up to 8,000 / 12,000.")
+        case .uma: return tr("终局结算时按 1–4 名加减顺位奖惩点（如 10-20 即一位 +20000、二位 +10000、三位 −10000、四位 −20000）。",
+                             "終局時に1〜4位の順位に応じて加減算される点数です（10-20なら1位+20000・2位+10000・3位−10000・4位−20000）。",
+                             "Placement bonus/penalty applied at final settlement (e.g. 10-20 gives +20k / +10k / −10k / −20k).")
+        case .kuitan: return tr("主流日麻规则允许吃、碰后做断幺九（1 翻）；关掉则只有门前清才算断幺九。",
+                                "一般的なルールでは鳴いてもタンヤオが成立します（あり）。なしにすると門前限定になります。",
+                                "Standard rules allow Tanyao on open hands. Turn off to require a closed hand.")
         case .cap: return tr("默认 13 翻及以上算累计役满。怕一把输太多可以设倍满（8 翻）或满贯（5 翻）封顶。",
                              "標準では13翻以上は数え役満です。上限を設ける場合は倍満（8翻）や満貫（5翻）を選べます。",
                              "By default, 13+ han is Kazoe Yakuman. You can cap hands at Baiman (8 han) or Mangan (5 han).")
@@ -320,6 +328,8 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .minimum: return rules.minimumFan == standard.minimumFan
         case .flowers: return rules.includeFlowers == standard.includeFlowers
         case .base: return rules.kiriageMangan == standard.kiriageMangan
+        case .uma: return rules.uma == standard.uma
+        case .kuitan: return rules.allowKuitan == standard.allowKuitan
         case .cap: return rules.fanCap == standard.fanCap
         case .penalty: return rules.falseWinPenalty == standard.falseWinPenalty
         case .swap: return rules.swapSeatsEachRound == standard.swapSeatsEachRound
@@ -336,6 +346,11 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .minimum: return ("\(rules.minimumFan)", tr("翻", "翻", "han"), true)
         case .flowers: return (rules.includeFlowers ? tr("计宝牌", "あり", "On") : tr("不计", "なし", "Off"), "", false)
         case .base: return (rules.kiriageMangan ? tr("开启", "あり", "On") : tr("不切上", "なし", "Off"), "", false)
+        case .uma:
+            if rules.uma == 0 { return (tr("不设", "なし", "None"), "", false) }
+            let second = rules.uma == 10 ? 5 : 10
+            return ("\(second)-\(rules.uma)", "", false)
+        case .kuitan: return (rules.allowKuitan ? tr("允许", "あり", "Allowed") : tr("门前限定", "なし", "Closed Only"), "", false)
         case .cap: return rules.fanCap > 0 ? (tr("\(rules.fanCap) 翻", "\(rules.fanCap)翻", "\(rules.fanCap) han"), "", false) : (tr("不封顶", "上限なし", "No Cap"), "", false)
         case .penalty: return (tr("\(rules.falseWinPenalty) 点", "\(rules.falseWinPenalty)点", "\(rules.falseWinPenalty) pts"), "", false)
         case .swap: return (rules.swapSeatsEachRound ? tr("换", "あり", "On") : tr("不换", "なし", "Off"), "", false)
@@ -362,6 +377,18 @@ enum RuleItem: String, Identifiable, CaseIterable {
             return [false, true].map {
                 RuleOption.choice(\.kiriageMangan, $0, $0 ? "切上满贯（按 8000 / 12000 算）" : "按实算（7700 / 11600 点）")
             }
+        case .uma:
+            return [
+                (0, tr("不设（只按素点结算）", "なし（素点のみ）", "None (Raw points only)")),
+                (10, tr("5-10（一位 +10000 / 二位 +5000）", "ゴットー 5-10（+10000 / +5000）", "5-10 (+10k / +5k / −5k / −10k)")),
+                (20, tr("10-20（一位 +20000 / 二位 +10000）", "ワンツー 10-20（+20000 / +10000）", "10-20 (+20k / +10k / −10k / −20k)")),
+                (30, tr("10-30（一位 +30000 / 二位 +10000）", "ワンスリー 10-30（+30000 / +10000）", "10-30 (+30k / +10k / −10k / −30k)")),
+            ].map { RuleOption.choice(\.uma, $0.0, $0.1) }
+        case .kuitan:
+            return [
+                (true, tr("允许副露断幺九（喰断あり）", "喰いタンあり（鳴いても1翻）", "Allowed on open hands (Kuitan On)")),
+                (false, tr("门前清限定（喰断なし）", "喰いタンなし（門前のみ）", "Closed hands only (Kuitan Off)")),
+            ].map { RuleOption.choice(\.allowKuitan, $0.0, $0.1) }
         case .cap:
             return [(0, "不封顶（13 翻累计役满）"), (13, "13 翻（役满封顶）"), (8, "8 翻（倍满封顶）"), (5, "5 翻（满贯封顶）")].map {
                 RuleOption.choice(\.fanCap, $0.0, $0.1)

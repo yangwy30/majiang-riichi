@@ -362,6 +362,30 @@ final class ArchiveAndParsingTests: XCTestCase {
         XCTAssertEqual(newDrawn, .drawn(tenpai: [0, 2]))
         XCTAssertEqual(Tile.parseList("406m 0p 0s"), Tile.parseList("456m 5p 5s"))
     }
+
+    func testKuitanAndUmaRules() throws {
+        let openTanyao = Hand(melds: [.chow(Tile(.characters, 2))!],
+                              concealed: Tile.parseList("345p 678s 234s 55p"),
+                              winningTile: Tile(.dots, 5))
+        XCTAssertEqual(try? FanCalculator.score(openTanyao, context: WinContext(allowKuitan: true)).get().totalFan, 1)
+        XCTAssertEqual(try? FanCalculator.score(openTanyao, context: WinContext(allowKuitan: false)).get().totalFan, 0)
+
+        var rules = GameRules()
+        rules.totalHands = 4
+        rules.allowKuitan = false
+        rules.uma = 20
+        var game = Game(players: ["东", "南", "西", "北"].map { Player(name: $0) }, rules: rules)
+        try game.recordWin(WinRecord(winner: 1, discarder: 0, hand: nil, context: WinContext(), fans: [], flowerFan: 0, fu: 30, fanOverride: 4)) // 南赢东 7700
+        try game.recordDraw(tenpai: [2]) // 西 +3000，东/南/北各 -1000
+        game.end()
+        // 终局前分数：南 +6700(1位)，西 +3000(2位)，北 -1000(3位)，东 -8700(4位)
+        // 顺位马 10-20（+20000 / +10000 / -10000 / -20000）：
+        XCTAssertEqual(game.scores[1], 26700)
+        XCTAssertEqual(game.scores[2], 13000)
+        XCTAssertEqual(game.scores[3], -11000)
+        XCTAssertEqual(game.scores[0], -28700)
+        XCTAssertEqual(game.scores.reduce(0, +), 0)
+    }
 }
 
 private extension HandOutcome {

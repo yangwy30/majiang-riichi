@@ -47,21 +47,36 @@ struct ResultSheet: View {
                 .padding(.top, 20)
                 let paid = game.rules.paidFan(record)
                 let limit = Payment.limitName(han: paid, fu: record.fu, kiriageMangan: game.rules.kiriageMangan)
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(record.totalFan)")
-                        .font(.system(size: 88, weight: .ultraLight).monospacedDigit())
-                        .tracking(-2)
-                    Text(tr("翻", "翻", "han")).font(Theme.serif(22))
-                    Text(tr("· \(record.fu) 符", "・\(record.fu)符", "· \(record.fu) fu"))
-                        .font(.system(size: 20, weight: .light).monospacedDigit())
-                        .foregroundStyle(Theme.gray)
-                    if let limit {
-                        Text("· \(limit)")
-                            .font(Theme.serif(20, semibold: true))
-                            .foregroundStyle(Theme.vermilion)
+                HStack(alignment: .center, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(record.totalFan)")
+                            .font(.system(size: 72, weight: .ultraLight).monospacedDigit())
+                            .tracking(-2)
+                        Text(tr("翻", "翻", "han")).font(Theme.serif(20))
+                        Text(tr("· \(record.fu) 符", "・\(record.fu)符", "· \(record.fu) fu"))
+                            .font(.system(size: 18, weight: .light).monospacedDigit())
+                            .foregroundStyle(Theme.gray)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 6) {
+                        if let limit {
+                            LimitStamp(text: limit, size: 16)
+                        }
+                        if record.winner < deltas.count {
+                            Text(Theme.signed(deltas[record.winner]))
+                                .font(Theme.score(22, weight: .regular))
+                                .foregroundStyle(Theme.vermilion)
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .background(Theme.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(Theme.lineSoft, lineWidth: 1)
+                )
+                .padding(.top, 4)
                 if paid < record.totalFan {
                     Text(tr("桌规封顶 \(game.rules.fanCap) 翻：\(record.totalFan) 翻按 \(game.rules.fanCap) 算",
                             "ルール上限 \(game.rules.fanCap)翻：\(record.totalFan)翻を\(game.rules.fanCap)翻として計算",

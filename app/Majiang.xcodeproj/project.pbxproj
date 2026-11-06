@@ -188,7 +188,7 @@
 				DEVELOPMENT_TEAM = 93RUQ2A6KX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "拍照算番";
+				INFOPLIST_KEY_CFBundleDisplayName = "日麻算番";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCameraUsageDescription = "拍下和牌那家的牌，用来识别牌面和算番。";
@@ -201,7 +201,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.3;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yangwy30.majiang;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yangwy30.majiang.riichi;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -219,7 +219,7 @@
 				DEVELOPMENT_TEAM = 93RUQ2A6KX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "拍照算番";
+				INFOPLIST_KEY_CFBundleDisplayName = "日麻算番";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCameraUsageDescription = "拍下和牌那家的牌，用来识别牌面和算番。";
@@ -232,7 +232,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.3;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yangwy30.majiang;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yangwy30.majiang.riichi;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
