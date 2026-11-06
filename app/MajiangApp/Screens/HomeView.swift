@@ -31,7 +31,9 @@ struct HomeView: View {
         .sheet(isPresented: $showMore, onDismiss: openMoreTarget) {
             MoreSheet(showsInvite: model.usesProxy || model.demoScreen == .invite || model.demoScreen == .more,
                       inviteOn: model.inviteCode != nil,
-                      backupLine: backupLine) { target in
+                      backupLine: backupLine,
+                      currentLang: model.currentLang,
+                      onCycleLanguage: cycleLanguage) { target in
                 moreTarget = target
                 showMore = false
             }
@@ -132,7 +134,15 @@ struct HomeView: View {
 
     /// 「备份与换手机」那行下面的一句：iCloud 开没开。
     private var backupLine: String {
-        model.cloud.enabled ? "iCloud 同步已打开" : "导出、导入牌局，或者打开 iCloud 同步"
+        model.cloud.enabled
+            ? tr("iCloud 同步已打开", "iCloud同期オン", "iCloud Sync is on")
+            : tr("导出、导入牌局，或者打开 iCloud 同步", "対局データの書き出し・読み込み・iCloud同期", "Export, import games, or enable iCloud Sync")
+    }
+
+    private func cycleLanguage() {
+        let all = AppLang.allCases
+        let idx = all.firstIndex(of: model.currentLang) ?? 0
+        model.appLanguage = all[(idx + 1) % all.count].rawValue
     }
 
     private func openMoreTarget() {
@@ -155,6 +165,8 @@ private struct MoreSheet: View {
     var showsInvite: Bool
     var inviteOn: Bool
     var backupLine: String
+    var currentLang: AppLang
+    var onCycleLanguage: () -> Void
     var pick: (MoreTarget) -> Void
 
     var body: some View {
@@ -163,17 +175,40 @@ private struct MoreSheet: View {
                 .font(.system(size: 20, weight: .semibold))
                 .padding(.top, 28)
                 .padding(.bottom, 8)
-            row("役与点数怎么算", "立直日麻的役种和点数收付，都是白话", .guide, last: false)
-            row("备份与换手机", backupLine, .backup, last: !showsInvite)
+            row(tr("役与点数怎么算", "役と点数の計算方法", "Yaku & Scoring Guide"),
+                tr("立直日麻的役种和点数收付，都是白话", "リーチ麻雀の役一覧と点数早見表", "Plain-language guide to Riichi yaku and payments"),
+                .guide, last: false)
+            row(tr("备份与换手机", "バックアップ・機種変更", "Backup & Restore"), backupLine, .backup, last: false)
+            Button(action: onCycleLanguage) {
+                VStack(spacing: 0) {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(tr("语言 / 言語 / Language", "言語 / Language / 语言", "Language / 言語 / 语言")).font(.system(size: 17))
+                            Text(tr("点一下切换：中文 · 日本語 · English", "タップで切替：日本語・English・中文", "Tap to switch: English · 日本語 · 中文"))
+                                .font(.system(size: 14))
+                                .foregroundStyle(Theme.gray)
+                        }
+                        Spacer(minLength: 8)
+                        Text(currentLang.displayName)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Theme.gray)
+                    }
+                    .frame(minHeight: 72)
+                    if showsInvite { Hairline() }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
             if showsInvite {
-                row(inviteOn ? "AI 认牌 · 已开启" : "AI 认牌", inviteOn ? "看邀请码，或者移除" : "有邀请码就能开启，认牌更准",
+                row(inviteOn ? tr("AI 认牌 · 已开启", "AI牌認識・有効", "AI Recognition · Active") : tr("AI 认牌", "AI牌認識", "AI Recognition"),
+                    inviteOn ? tr("看邀请码，或者移除", "招待コードの確認・削除", "View or remove invite code") : tr("有邀请码就能开启，认牌更准", "招待コードでAI高精度認識を有効化", "Enter invite code for higher accuracy"),
                     .invite, last: true)
             }
         }
         .padding(.horizontal, 24)
         .frame(maxHeight: .infinity, alignment: .top)
         .foregroundStyle(Theme.ink)
-        .presentationDetents([.height(showsInvite ? 296 : 222)])
+        .presentationDetents([.height(showsInvite ? 368 : 294)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(28)
         .presentationBackground(Theme.paper)
@@ -245,7 +280,7 @@ private struct HistoryRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(game.startedAt.dayLabel).font(.system(size: 16, weight: .medium))
-                    Text(game.players.map(\.name).joined(separator: "、") + " · \(game.playedHandsCount) 局")
+                    Text(game.players.map(\.name).joined(separator: tr("、", "・", ", ")) + tr(" · \(game.playedHandsCount) 局", "・\(game.playedHandsCount)局", " · \(game.playedHandsCount) hands"))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .lineLimit(1)

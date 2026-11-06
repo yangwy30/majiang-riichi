@@ -94,7 +94,7 @@ struct CaptureView: View {
     }
 
     private var status: String? {
-        if flow.isRecognizing { return slow ? "正在认牌…" : nil }
+        if flow.isRecognizing { return slow ? tr("正在认牌…", "牌を読み取り中…", "Recognizing tiles…") : nil }
         return flow.recognitionError
     }
 

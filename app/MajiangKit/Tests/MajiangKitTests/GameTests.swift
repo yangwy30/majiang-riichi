@@ -205,6 +205,34 @@ final class GameTests: XCTestCase {
         XCTAssertEqual(game.currentHonba, 0, "和牌后本场归零")
     }
 
+    func testCarryOverRiichiPotAcrossDrawAndFinalTopCollection() throws {
+        var game = makeGame()
+        // 东 1 局：流局，0 和 1 宣布了立直（自动计入听牌），各付 1000 点供托棒；2、3 不听各付 1500
+        let drawRec = try game.recordDraw(tenpai: [0], riichi: [0, 1])
+        XCTAssertEqual(drawRec.deltas, [500, 500, -1500, -1500], "听牌收 +1500 减去立直棒 -1000 = +500")
+        XCTAssertEqual(game.currentPot, 2000, "2 根立直棒（2000 点）留作下一局供托")
+        XCTAssertEqual(game.currentHonba, 1)
+
+        // 下一局（东 1 局 · 1 本场）：闲家 2 荣和 3 满贯（8000 + 300 本场 = 8300），同时收走桌上 2000 点供托
+        let winRec = try game.recordWin(win(2, discarder: 3, fan: 5))
+        XCTAssertEqual(winRec.pot, 2000)
+        XCTAssertEqual(winRec.deltas, [0, 0, 10300, -8300])
+        XCTAssertEqual(game.currentPot, 0, "和牌后桌上供托清空")
+        XCTAssertEqual(game.scores.reduce(0, +), 0, "供托收走后全桌总分守恒为 0")
+
+        // 若终局时仍有未领供托，归一位（トップ取り），总分依然守恒为 0
+        var endGame = makeGame()
+        endGame.rules.totalHands = 4
+        try endGame.recordWin(win(2, discarder: 3, fan: 5)) // 东 1：2 赢 +8000
+        try endGame.recordDraw(tenpai: [], riichi: [])      // 东 2
+        try endGame.recordDraw(tenpai: [], riichi: [])      // 东 3
+        try endGame.recordDraw(tenpai: [0], riichi: [0])    // 东 4（北家 3 坐庄不听流庄，终局）：0 立直留 1000 供托
+        XCTAssertTrue(endGame.isFinished)
+        XCTAssertEqual(endGame.currentPot, 1000)
+        XCTAssertEqual(endGame.scores.reduce(0, +), 0, "终局剩余供托归一位，四家总分守恒为 0")
+        XCTAssertEqual(endGame.scores[2], 8000 - 1000 + 1000, "一位（2）收走终局剩余 1000 点供托")
+    }
+
     func testRejectsInvalidWins() {
         var game = makeGame()
         XCTAssertThrowsError(try game.recordWin(win(0, discarder: 0, fan: 1)))

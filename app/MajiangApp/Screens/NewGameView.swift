@@ -25,9 +25,11 @@ struct NewGameView: View {
 
     /// 不能开始时按钮上直接写原因。
     private var startLabel: String {
-        if canStart { return "开始" }
+        if canStart { return tr("开始", "対局開始", "Start Game") }
         let filled = trimmed.filter { !$0.isEmpty }
-        return Set(filled).count < filled.count ? "名字不能重复" : "填好 4 个名字"
+        return Set(filled).count < filled.count
+            ? tr("名字不能重复", "同じ名前は使えません", "Names must be unique")
+            : tr("填好 4 个名字", "4人分の名前を入力してください", "Enter all 4 player names")
     }
 
     var body: some View {
@@ -152,8 +154,12 @@ struct NewGameView: View {
         }
     }
 
-    private static let seatNames = ["你", "下家", "对家", "上家"]
-    private static let seatHints = ["你的名字", "下家", "对家", "上家"]
+    private static var seatNames: [String] {
+        [tr("你", "あなた", "You"), tr("下家", "下家", "Right"), tr("对家", "対面", "Across"), tr("上家", "上家", "Left")]
+    }
+    private static var seatHints: [String] {
+        [tr("你的名字", "あなたの名前", "Your name"), tr("下家", "下家（右）", "Right player"), tr("对家", "対面（正面）", "Across player"), tr("上家", "上家（左）", "Left player")]
+    }
 
     private var frequentNames: [String] {
         model.archive.frequentPlayers.map(\.name).filter { !trimmed.contains($0) }

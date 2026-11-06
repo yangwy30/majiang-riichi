@@ -87,8 +87,8 @@ public struct GameRules: Hashable, Codable, Sendable {
 /// 一局的结果。
 public enum HandOutcome: Hashable, Codable, Sendable {
     case win(WinRecord)
-    /// 流局：记录哪几家听牌（0–3）。0 家或 4 家听牌不交换点数；1–3 家听牌时，不听者合计付 3000 点。
-    case drawn(tenpai: Set<Int> = [])
+    /// 流局：记录哪几家听牌（0–3）及哪几家在本局宣告了立直（每家投出 1000 点留作桌面供托）。
+    case drawn(tenpai: Set<Int> = [], riichi: Set<Int> = [])
     /// 错和（诈和）：赔另外三家罚符，不推进局数。
     case falseWin(offender: Int)
     /// 手动记分，四个数加起来为 0。
@@ -104,7 +104,7 @@ public enum HandOutcome: Hashable, Codable, Sendable {
         case win, drawn, falseWin, manual
     }
     private enum WinKeys: String, CodingKey { case _0 }
-    private enum DrawnKeys: String, CodingKey { case tenpai }
+    private enum DrawnKeys: String, CodingKey { case tenpai, riichi }
     private enum FalseWinKeys: String, CodingKey { case offender }
     private enum ManualKeys: String, CodingKey { case deltas, note }
 
@@ -115,8 +115,9 @@ public enum HandOutcome: Hashable, Codable, Sendable {
             self = .win(try nested.decode(WinRecord.self, forKey: ._0))
         } else if c.contains(.drawn) {
             let nested = try c.nestedContainer(keyedBy: DrawnKeys.self, forKey: .drawn)
-            let tenpai = try nested.decodeIfPresent(Set<Int>.self, forKey: .tenpai) ?? []
-            self = .drawn(tenpai: tenpai)
+            let riichi = try nested.decodeIfPresent(Set<Int>.self, forKey: .riichi) ?? []
+            let tenpai = (try nested.decodeIfPresent(Set<Int>.self, forKey: .tenpai) ?? []).union(riichi)
+            self = .drawn(tenpai: tenpai, riichi: riichi)
         } else if c.contains(.falseWin) {
             let nested = try c.nestedContainer(keyedBy: FalseWinKeys.self, forKey: .falseWin)
             self = .falseWin(offender: try nested.decode(Int.self, forKey: .offender))
@@ -135,10 +136,14 @@ public enum HandOutcome: Hashable, Codable, Sendable {
         case .win(let win):
             var nested = c.nestedContainer(keyedBy: WinKeys.self, forKey: .win)
             try nested.encode(win, forKey: ._0)
-        case .drawn(let tenpai):
+        case .drawn(let tenpai, let riichi):
             var nested = c.nestedContainer(keyedBy: DrawnKeys.self, forKey: .drawn)
-            if !tenpai.isEmpty {
-                try nested.encode(tenpai, forKey: .tenpai)
+            let effectiveTenpai = tenpai.union(riichi)
+            if !effectiveTenpai.isEmpty {
+                try nested.encode(effectiveTenpai, forKey: .tenpai)
+            }
+            if !riichi.isEmpty {
+                try nested.encode(riichi, forKey: .riichi)
             }
         case .falseWin(let offender):
             var nested = c.nestedContainer(keyedBy: FalseWinKeys.self, forKey: .falseWin)
@@ -215,22 +220,25 @@ public struct HandRecord: Identifiable, Hashable, Codable, Sendable {
     public var handIndex: Int
     /// 第几本场（0 起：庄家连庄或流局时递增）。
     public var honba: Int
+    /// 本局开始时桌面上累积的立直供托点数（此前流局遗留的立直棒，每根 1000 点）。
+    public var pot: Int
     public var outcome: HandOutcome
     /// 四个玩家本局的得失点数，下标同 `Game.players`。
     public var deltas: [Int]
     public var date: Date
 
-    public init(id: UUID = UUID(), handIndex: Int, honba: Int = 0, outcome: HandOutcome, deltas: [Int], date: Date = Date()) {
+    public init(id: UUID = UUID(), handIndex: Int, honba: Int = 0, pot: Int = 0, outcome: HandOutcome, deltas: [Int], date: Date = Date()) {
         self.id = id
         self.handIndex = handIndex
         self.honba = honba
+        self.pot = pot
         self.outcome = outcome
         self.deltas = deltas
         self.date = date
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, handIndex, honba, outcome, deltas, date
+        case id, handIndex, honba, pot, outcome, deltas, date
     }
 
     public init(from decoder: Decoder) throws {
@@ -238,6 +246,7 @@ public struct HandRecord: Identifiable, Hashable, Codable, Sendable {
         id = try c.decode(UUID.self, forKey: .id)
         handIndex = try c.decode(Int.self, forKey: .handIndex)
         honba = try c.decodeIfPresent(Int.self, forKey: .honba) ?? 0
+        pot = try c.decodeIfPresent(Int.self, forKey: .pot) ?? 0
         outcome = try c.decode(HandOutcome.self, forKey: .outcome)
         deltas = try c.decode([Int].self, forKey: .deltas)
         date = try c.decode(Date.self, forKey: .date)
@@ -255,14 +264,16 @@ public enum GameError: Error, Hashable, Sendable {
 
     public var message: String {
         switch self {
-        case .finished: return "这场牌局已经打完了"
-        case .invalidPlayer: return "玩家不对"
-        case .discarderIsWinner: return "点炮的人不能是和牌的人"
+        case .finished: return tr("这场牌局已经打完了", "この対局はすでに終了しています", "This game has already finished")
+        case .invalidPlayer: return tr("玩家不对", "プレイヤーが正しくありません", "Invalid player")
+        case .discarderIsWinner: return tr("点炮的人不能是和牌的人", "放銃者と和了者は同じにできません", "Discarder cannot be the winner")
         case .belowMinimumFan(let fan):
-            return fan == 0 ? "无役，不能和牌（宝牌不算起和役）" : "只有 \(fan) 翻役，不够起和"
-        case .deltasMustSumToZero: return "四个人的得失点加起来要等于 0"
-        case .recordNotFound: return "找不到这一局"
-        case .tooManyHands(let total): return "这样改就超过 \(total) 局了"
+            return fan == 0
+                ? tr("无役，不能和牌（宝牌不算起和役）", "役なしでは和了できません（ドラは役に含まれません）", "No yaku (Dora does not count as yaku)")
+                : tr("只有 \(fan) 翻役，不够起和", "\(fan)翻のみのため縛りを満たしていません", "Only \(fan) han of yaku, below minimum")
+        case .deltasMustSumToZero: return tr("四个人的得失点加起来要等于 0", "4人の収支合計は0にしてください", "The 4 players' point changes must sum to 0")
+        case .recordNotFound: return tr("找不到这一局", "この局が見つかりません", "Hand record not found")
+        case .tooManyHands(let total): return tr("这样改就超过 \(total) 局了", "\(total)局を超えてしまいます", "Exceeds \(total) hands")
         }
     }
 }
@@ -306,37 +317,40 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         records = try c.decodeIfPresent([HandRecord].self, forKey: .records) ?? []
     }
 
-    // MARK: 局数、本场、场风、自风
+    // MARK: 局数、本场、供托、场风、自风
 
     /// 已经打完的实际局数（不含错和，含庄家连庄的本场）。
     public var playedHandsCount: Int { records.filter(\.outcome.advancesHand).count }
 
-    private func nextProgression(after outcome: HandOutcome, inHand hand: Int, honba: Int) -> (hand: Int, honba: Int) {
+    private func nextProgression(after outcome: HandOutcome, inHand hand: Int, honba: Int, pot: Int) -> (hand: Int, honba: Int, pot: Int) {
         let currentDealer = dealer(ofHand: hand)
         switch outcome {
         case .win(let win):
             if win.winner == currentDealer {
-                return (hand, honba + 1)
+                return (hand, honba + 1, 0)
             } else {
-                return (hand + 1, 0)
+                return (hand + 1, 0, 0)
             }
-        case .drawn(let tenpai):
-            if tenpai.contains(currentDealer) {
-                return (hand, honba + 1)
+        case .drawn(let tenpai, let riichi):
+            let validRiichi = riichi.filter { (0..<4).contains($0) }
+            let effectiveTenpai = tenpai.union(validRiichi)
+            let nextPot = pot + validRiichi.count * 1000
+            if effectiveTenpai.contains(currentDealer) {
+                return (hand, honba + 1, nextPot)
             } else {
-                return (hand + 1, honba + 1)
+                return (hand + 1, honba + 1, nextPot)
             }
         case .falseWin:
-            return (hand, honba)
+            return (hand, honba, pot)
         case .manual:
-            return (hand + 1, 0)
+            return (hand + 1, 0, pot)
         }
     }
 
-    private var currentProgression: (hand: Int, honba: Int) {
-        var state = (hand: 0, honba: 0)
+    private var currentProgression: (hand: Int, honba: Int, pot: Int) {
+        var state = (hand: 0, honba: 0, pot: 0)
         for record in records {
-            state = nextProgression(after: record.outcome, inHand: state.hand, honba: state.honba)
+            state = nextProgression(after: record.outcome, inHand: state.hand, honba: state.honba, pot: state.pot)
         }
         return state
     }
@@ -346,6 +360,9 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
 
     /// 当前是第几本场（0 起：庄家连庄或流局时 +1，闲家和牌归零）。
     public var currentHonba: Int { currentProgression.honba }
+
+    /// 当前桌面上累积的立直供托点数（流局遗留的立直棒，每根 1000 点；下次有人和牌时由和牌者全收）。
+    public var currentPot: Int { currentProgression.pot }
 
     public var isFinished: Bool { endedAt != nil || currentHandIndex >= rules.totalHands }
 
@@ -392,11 +409,15 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
 
     // MARK: 分数
 
-    /// 每个人的累计净得失点（四家之和恒为 0）。
+    /// 每个人的累计净得失点。终局时若桌面仍有未收走的立直供托棒，按日麻标准规则（トップ取り）归第一名。
     public var scores: [Int] {
-        records.reduce(into: [0, 0, 0, 0]) { total, record in
-            for i in 0..<4 { total[i] += record.deltas[i] }
+        var total = records.reduce(into: [0, 0, 0, 0]) { acc, record in
+            for i in 0..<4 { acc[i] += record.deltas[i] }
         }
+        if isFinished && currentPot > 0, let top = Settlement.ranking(scores: total).first {
+            total[top] += currentPot
+        }
+        return total
     }
 
     /// 点数折合多少元（按 `yuanPerPoint` = 每 1000 点几元计算）。
@@ -421,18 +442,19 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         try validate(.win(win))
         let state = currentProgression
         let outcome = HandOutcome.win(win)
-        return append(outcome, inHand: state.hand, honba: state.honba,
-                      deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba))
+        return append(outcome, inHand: state.hand, honba: state.honba, pot: state.pot,
+                      deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba, pot: state.pot))
     }
 
     @discardableResult
-    public mutating func recordDraw(tenpai: Set<Int> = []) throws -> HandRecord {
+    public mutating func recordDraw(tenpai: Set<Int> = [], riichi: Set<Int> = []) throws -> HandRecord {
         guard !isFinished else { throw GameError.finished }
-        let valid = tenpai.filter { (0..<4).contains($0) }
+        let validRiichi = riichi.filter { (0..<4).contains($0) }
+        let validTenpai = tenpai.filter { (0..<4).contains($0) }.union(validRiichi)
         let state = currentProgression
-        let outcome = HandOutcome.drawn(tenpai: valid)
-        return append(outcome, inHand: state.hand, honba: state.honba,
-                      deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba))
+        let outcome = HandOutcome.drawn(tenpai: validTenpai, riichi: validRiichi)
+        return append(outcome, inHand: state.hand, honba: state.honba, pot: state.pot,
+                      deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba, pot: state.pot))
     }
 
     @discardableResult
@@ -441,8 +463,8 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         try validate(.falseWin(offender: offender))
         let state = currentProgression
         let outcome = HandOutcome.falseWin(offender: offender)
-        return append(outcome, inHand: state.hand, honba: state.honba,
-                      deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba))
+        return append(outcome, inHand: state.hand, honba: state.honba, pot: state.pot,
+                      deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba, pot: state.pot))
     }
 
     @discardableResult
@@ -450,7 +472,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         guard !isFinished else { throw GameError.finished }
         try validate(.manual(deltas: deltas, note: note))
         let state = currentProgression
-        return append(.manual(deltas: deltas, note: note), inHand: state.hand, honba: state.honba, deltas: deltas)
+        return append(.manual(deltas: deltas, note: note), inHand: state.hand, honba: state.honba, pot: state.pot, deltas: deltas)
     }
 
     /// 撤销最后一条记录。
@@ -506,19 +528,23 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
     }
 
     private mutating func reflow(edited: UUID?) throws {
-        var state = (hand: 0, honba: 0)
+        var state = (hand: 0, honba: 0, pot: 0)
         for i in records.indices {
             let hand = state.hand
             let honba = state.honba
+            let pot = state.pot
             records[i].handIndex = hand
             records[i].honba = honba
+            records[i].pot = pot
             let isEdited = records[i].id == edited
             if case .win(let win) = records[i].outcome {
                 records[i].outcome = .win(reconciled(win, inHand: hand, edited: isEdited))
+            } else if case .drawn(let tenpai, let riichi) = records[i].outcome {
+                records[i].outcome = .drawn(tenpai: tenpai.union(riichi), riichi: riichi)
             }
             if isEdited { try validate(records[i].outcome) }
-            records[i].deltas = deltas(for: records[i].outcome, inHand: hand, honba: honba)
-            state = nextProgression(after: records[i].outcome, inHand: hand, honba: honba)
+            records[i].deltas = deltas(for: records[i].outcome, inHand: hand, honba: honba, pot: pot)
+            state = nextProgression(after: records[i].outcome, inHand: hand, honba: honba, pot: pot)
         }
         guard state.hand <= rules.totalHands else { throw GameError.tooManyHands(rules.totalHands) }
     }
@@ -557,8 +583,10 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
             }
             let fanWithoutFlowers = win.totalFan - win.flowerFan
             guard fanWithoutFlowers >= rules.minimumFan else { throw GameError.belowMinimumFan(fanWithoutFlowers) }
-        case .drawn(let tenpai):
-            guard tenpai.allSatisfy({ (0..<4).contains($0) }) else { throw GameError.invalidPlayer }
+        case .drawn(let tenpai, let riichi):
+            guard tenpai.allSatisfy({ (0..<4).contains($0) }), riichi.allSatisfy({ (0..<4).contains($0) }) else {
+                throw GameError.invalidPlayer
+            }
         case .falseWin(let offender):
             guard (0..<4).contains(offender) else { throw GameError.invalidPlayer }
         case .manual(let deltas, _):
@@ -566,7 +594,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         }
     }
 
-    private func deltas(for outcome: HandOutcome, inHand handIndex: Int, honba: Int = 0) -> [Int] {
+    private func deltas(for outcome: HandOutcome, inHand handIndex: Int, honba: Int = 0, pot: Int = 0) -> [Int] {
         switch outcome {
         case .win(let win):
             return Payment.winDeltas(
@@ -576,11 +604,12 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
                 totalFan: rules.paidFan(win),
                 fu: win.fu,
                 honba: honba,
+                pot: pot,
                 riichiPlayers: win.riichiPlayers,
                 rules: rules
             )
-        case .drawn(let tenpai):
-            return Payment.drawDeltas(tenpai: tenpai)
+        case .drawn(let tenpai, let riichi):
+            return Payment.drawDeltas(tenpai: tenpai, riichi: riichi)
         case .falseWin(let offender):
             return Payment.falseWinDeltas(offender: offender, penalty: rules.falseWinPenalty)
         case .manual(let deltas, _):
@@ -588,8 +617,8 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         }
     }
 
-    private mutating func append(_ outcome: HandOutcome, inHand handIndex: Int, honba: Int, deltas: [Int]) -> HandRecord {
-        let record = HandRecord(handIndex: handIndex, honba: honba, outcome: outcome, deltas: deltas)
+    private mutating func append(_ outcome: HandOutcome, inHand handIndex: Int, honba: Int, pot: Int, deltas: [Int]) -> HandRecord {
+        let record = HandRecord(handIndex: handIndex, honba: honba, pot: pot, outcome: outcome, deltas: deltas)
         records.append(record)
         return record
     }
@@ -622,19 +651,19 @@ public enum Payment {
 
     /// 满贯及以上的段位名称（未达满贯返回 nil）。
     public static func limitName(han: Int, fu: Int = 30, kiriageMangan: Bool = false) -> String? {
-        if han >= 26 { return "双倍役满" }
-        if han >= 13 { return "役满" }
-        if han >= 11 { return "三倍满" }
-        if han >= 8 { return "倍满" }
-        if han >= 6 { return "跳满" }
-        if basePoints(han: han, fu: fu, kiriageMangan: kiriageMangan) == 2000 { return "满贯" }
+        if han >= 26 { return tr("双倍役满", "ダブル役満", "Double Yakuman") }
+        if han >= 13 { return tr("役满", "役満", "Yakuman") }
+        if han >= 11 { return tr("三倍满", "三倍満", "Sanbaiman") }
+        if han >= 8 { return tr("倍满", "倍満", "Baiman") }
+        if han >= 6 { return tr("跳满", "跳満", "Haneman") }
+        if basePoints(han: han, fu: fu, kiriageMangan: kiriageMangan) == 2000 { return tr("满贯", "満貫", "Mangan") }
         return nil
     }
 
     /// 立直麻将一局和牌的四家得失点数：
     /// - 荣和（点炮）：放铳者一家付（庄家和 $6B$ 进百，闲家和 $4B$ 进百），每本场另加 300 点。
     /// - 自摸：庄家自摸三家各付 $2B$ 进百；闲家自摸庄家付 $2B$ 进百、另外两家闲家各付 $1B$ 进百；每本场三家各另付 100 点。
-    /// - 立直供托棒：`riichiPlayers` 中除和牌者外的每家各扣 1000 点，归和牌者所有。
+    /// - 立直供托棒：`riichiPlayers` 中除和牌者外的每家各扣 1000 点，连同桌面此前累积的 `pot` 供托点数一并归和牌者所有。
     public static func winDeltas(
         winner: Int,
         discarder: Int?,
@@ -642,6 +671,7 @@ public enum Payment {
         totalFan: Int,
         fu: Int = 30,
         honba: Int = 0,
+        pot: Int = 0,
         riichiPlayers: Set<Int> = [],
         rules: GameRules = .standard
     ) -> [Int] {
@@ -675,26 +705,34 @@ public enum Payment {
             deltas[p] -= 1000
             deltas[winner] += 1000
         }
+        deltas[winner] += max(0, pot)
         return deltas
     }
 
-    /// 荒牌流局听牌罚符（不听罚 3000 点）：
-    /// - 0 家或 4 家听牌：全员 0 点；
+    /// 荒牌流局听牌罚符（不听罚 3000 点）与流局立直棒供托：
+    /// - 0 家或 4 家听牌：听牌罚符为 0；
     /// - 1 家听牌：听牌者 +3000，其余 3 家各 -1000；
     /// - 2 家听牌：听牌者各 +1500，其余 2 家各 -1500；
-    /// - 3 家听牌：听牌者各 +1000，不听者 -3000。
-    public static func drawDeltas(tenpai: Set<Int>) -> [Int] {
-        let valid = tenpai.filter { (0..<4).contains($0) }
+    /// - 3 家听牌：听牌者各 +1000，不听者 -3000；
+    /// - 本局宣告立直的玩家（`riichi`）每家另扣 1000 点留作桌面供托。
+    public static func drawDeltas(tenpai: Set<Int>, riichi: Set<Int> = []) -> [Int] {
+        let validRiichi = riichi.filter { (0..<4).contains($0) }
+        let valid = tenpai.filter { (0..<4).contains($0) }.union(validRiichi)
+        var deltas: [Int]
         switch valid.count {
         case 1:
-            return (0..<4).map { valid.contains($0) ? 3000 : -1000 }
+            deltas = (0..<4).map { valid.contains($0) ? 3000 : -1000 }
         case 2:
-            return (0..<4).map { valid.contains($0) ? 1500 : -1500 }
+            deltas = (0..<4).map { valid.contains($0) ? 1500 : -1500 }
         case 3:
-            return (0..<4).map { valid.contains($0) ? 1000 : -3000 }
+            deltas = (0..<4).map { valid.contains($0) ? 1000 : -3000 }
         default:
-            return [0, 0, 0, 0]
+            deltas = [0, 0, 0, 0]
         }
+        for p in validRiichi {
+            deltas[p] -= 1000
+        }
+        return deltas
     }
 
     /// 错和罚符：赔另外三家各 `penalty` 点。

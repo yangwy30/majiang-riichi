@@ -117,20 +117,22 @@ final class RoundFlow {
 
     /// 底部按钮不能点时的原因；nil 表示可以看结果了。
     var blockedReason: String? {
-        if isReviewing { return "稍等几秒" }
-        if tiles.isEmpty { return "先把牌加上" }
-        if pendingReviewCount > 0 { return "还有 \(pendingReviewCount) 张没确认" }
+        if isReviewing { return tr("稍等几秒", "確認中…", "Just a moment…") }
+        if tiles.isEmpty { return tr("先把牌加上", "まず牌を追加してください", "Add tiles first") }
+        if pendingReviewCount > 0 { return tr("还有 \(pendingReviewCount) 张没确认", "残り\(pendingReviewCount)枚の確認が必要です", "\(pendingReviewCount) tile(s) need confirmation") }
         switch scoring {
         case .failure:
-            return "先把牌改对"
+            return tr("先把牌改对", "まず手牌を修正してください", "Fix the hand tiles first")
         case .success(let result) where !result.meetsMinimum(game.rules.minimumFan):
-            return result.fanWithoutFlowers == 0 ? "无役，和不了" : "不够 \(game.rules.minimumFan) 翻役，和不了"
+            return result.fanWithoutFlowers == 0
+                ? tr("无役，和不了", "役なし（和了不可）", "No yaku (cannot win)")
+                : tr("不够 \(game.rules.minimumFan) 翻役，和不了", "\(game.rules.minimumFan)翻縛りを満たしていません", "Below \(game.rules.minimumFan)-han minimum")
         case .success:
             break
         }
-        if !winnerChosen { return "选一下谁和了" }
-        if !wayChosen { return "选一下怎么和的" }
-        if !selfDrawn && (discarder == nil || discarder == winner) { return "选一下是谁点的炮" }
+        if !winnerChosen { return tr("选一下谁和了", "和了した人を選んでください", "Select the winner") }
+        if !wayChosen { return tr("选一下怎么和的", "ツモかロンか選んでください", "Select Tsumo or Ron") }
+        if !selfDrawn && (discarder == nil || discarder == winner) { return tr("选一下是谁点的炮", "放銃した人を選んでください", "Select who dealt in") }
         return nil
     }
 
@@ -323,6 +325,7 @@ final class RoundFlow {
             totalFan: game.rules.paidFan(record),
             fu: record.fu,
             honba: game.currentHonba,
+            pot: game.currentPot,
             riichiPlayers: record.riichiPlayers,
             rules: game.rules
         )

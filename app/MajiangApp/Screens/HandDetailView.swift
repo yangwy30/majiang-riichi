@@ -55,13 +55,18 @@ struct HandDetailView: View {
     private func content(_ game: Game, record: HandRecord, win: WinRecord, number: Int) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("第 \(number) 局 · \(game.handTitle(for: record)) · \(game.players[game.dealer(ofHand: record.handIndex)].name)坐庄")
+                let dealerName = game.players[game.dealer(ofHand: record.handIndex)].name
+                Text(tr("第 \(number) 局 · \(game.handTitle(for: record)) · \(dealerName)坐庄",
+                        "第\(number)局・\(game.handTitle(for: record))・親：\(dealerName)",
+                        "Hand #\(number) · \(game.handTitle(for: record)) · Dealer: \(dealerName)"))
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
                     .padding(.top, 6)
 
                 HStack(alignment: .firstTextBaseline) {
-                    Text(win.isSelfDrawn ? "\(game.players[win.winner].name)自摸" : "\(game.players[win.winner].name)和")
+                    Text(win.isSelfDrawn
+                         ? tr("\(game.players[win.winner].name)自摸", "\(game.players[win.winner].name) ツモ", "\(game.players[win.winner].name) Tsumo")
+                         : tr("\(game.players[win.winner].name)和", "\(game.players[win.winner].name) ロン", "\(game.players[win.winner].name) Ron"))
                         .font(.system(size: 30, weight: .semibold))
                         .tracking(-0.4)
                         .lineLimit(1)
@@ -71,8 +76,8 @@ struct HandDetailView: View {
                         Text("\(win.totalFan)")
                             .font(.system(size: 46, weight: .ultraLight).monospacedDigit())
                             .tracking(-1)
-                        Text("翻").font(Theme.serif(18))
-                        Text("· \(win.fu) 符")
+                        Text(tr("翻", "翻", "han")).font(Theme.serif(18))
+                        Text(tr("· \(win.fu) 符", "・\(win.fu)符", "· \(win.fu) fu"))
                             .font(.system(size: 16, weight: .light).monospacedDigit())
                             .foregroundStyle(Theme.gray)
                     }
@@ -81,7 +86,9 @@ struct HandDetailView: View {
                 .padding(.top, 2)
 
                 if game.rules.paidFan(win) < win.totalFan {
-                    Text("桌规封顶 \(game.rules.fanCap) 翻：\(win.totalFan) 翻按 \(game.rules.fanCap) 算")
+                    Text(tr("桌规封顶 \(game.rules.fanCap) 翻：\(win.totalFan) 翻按 \(game.rules.fanCap) 算",
+                            "ルール上限 \(game.rules.fanCap)翻：\(win.totalFan)翻を\(game.rules.fanCap)翻として計算",
+                            "Capped at \(game.rules.fanCap) han (\(win.totalFan) han counted as \(game.rules.fanCap))"))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .padding(.horizontal, 12)
@@ -148,7 +155,7 @@ struct HandDetailView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 6)
                 DeltaGrid(game: game, deltas: record.deltas)
-                Text(game.paymentExplanation(win, honba: record.honba, deltas: record.deltas))
+                Text(game.paymentExplanation(win, honba: record.honba, pot: record.pot, deltas: record.deltas))
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
                     .lineSpacing(3)

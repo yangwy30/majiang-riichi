@@ -63,7 +63,9 @@ struct HouseRulesForm: View {
 
     private var moreLabel: String {
         let changed = RuleItem.more.filter { !$0.isStandard(rules) }.count
-        return changed > 0 ? "更多桌规 · 改过 \(changed) 项" : "更多桌规"
+        return changed > 0
+            ? tr("更多桌规 · 改过 \(changed) 项", "詳細ルール・\(changed)項目変更", "More Rules · \(changed) changed")
+            : tr("更多桌规", "詳細ルール", "More Rules")
     }
 
     /// 随改随算的示例句。
@@ -72,7 +74,9 @@ struct HouseRulesForm: View {
         let deltas = Payment.winDeltas(winner: 1, discarder: 0, dealer: 0, totalFan: han, fu: 30, rules: rules)
         let points = deltas[1]
         let money = ((Double(points) / 1000.0) * rules.yuanPerPoint).formatted(.number.precision(.fractionLength(0...2)))
-        return "比如闲家满贯（5 翻）：赢 \(points) 点，折合 \(money) 元。"
+        return tr("比如闲家满贯（5 翻）：赢 \(points) 点，折合 \(money) 元。",
+                  "例：子の満貫（5翻）＝ +\(points)点（\(money)相当）。",
+                  "Example: Non-dealer Mangan (5 han) = +\(points) pts (¥\(money)).")
     }
 }
 
@@ -259,38 +263,52 @@ enum RuleItem: String, Identifiable, CaseIterable {
 
     var title: String {
         switch self {
-        case .rate: return "1000 点算"
-        case .rounds: return "局制"
-        case .minimum: return "起和"
-        case .flowers: return "宝牌"
-        case .base: return "切上满贯"
-        case .cap: return "封顶"
-        case .penalty: return "错和罚符"
-        case .swap: return "每圈换座"
+        case .rate: return tr("1000 点算", "1000点レート", "Per 1,000 Pts")
+        case .rounds: return tr("局制", "対局形式", "Game Length")
+        case .minimum: return tr("起和", "翻縛り", "Min Yaku Han")
+        case .flowers: return tr("宝牌", "ドラ", "Dora")
+        case .base: return tr("切上满贯", "切り上げ満貫", "Kiriage Mangan")
+        case .cap: return tr("封顶", "翻数上限", "Han Cap")
+        case .penalty: return tr("错和罚符", "チョンボ罰符", "Chombo Penalty")
+        case .swap: return tr("每圈换座", "場風ごと席替え", "Swap Seats")
         }
     }
 
     var hint: String {
         switch self {
-        case .rate: return "结算时每 1000 点折合多少元"
-        case .rounds: return "半庄 8 局，东风战 4 局"
-        case .minimum: return "至少几翻役才能和（宝牌不算）"
-        case .flowers: return "表宝、赤宝、里宝每张 1 翻"
-        case .base: return "30 符 4 翻、60 符 3 翻按满贯算"
+        case .rate: return tr("结算时每 1000 点折合多少元", "精算時の1000点あたりの換算額", "Settlement value per 1,000 points")
+        case .rounds: return tr("半庄 8 局，东风战 4 局", "半荘8局・東風4局", "Hanchan (8 hands) or East Only (4 hands)")
+        case .minimum: return tr("至少几翻役才能和（宝牌不算）", "和了に必要な役の翻数（ドラ除く）", "Minimum yaku han required to win (excl. Dora)")
+        case .flowers: return tr("表宝、赤宝、里宝每张 1 翻", "表ドラ・赤ドラ・裏ドラ各1翻", "Dora, Red 5 & Ura-dora add +1 han each")
+        case .base: return tr("30 符 4 翻、60 符 3 翻按满贯算", "30符4翻・60符3翻を満貫とする", "Round 30 fu 4 han & 60 fu 3 han up to Mangan")
         case .cap, .penalty, .swap: return ""
         }
     }
 
     var note: String {
         switch self {
-        case .rate: return "每桌自己定，换预设不会动这一项。比如千点 1 元时，满贯 8000 点就是 8 元。"
-        case .rounds: return "标准半庄打东场 4 局 + 南场 4 局共 8 局；时间紧可以打东风战 4 局。"
-        case .minimum: return "立直麻将标准为 1 翻起和（宝牌不算役）。少数桌规要求 2 翻起和。"
-        case .flowers: return "计入宝牌时，表宝牌、赤宝牌、里宝牌每张加 1 翻，但不计入 1 翻起和条件。"
-        case .base: return "标准规则下 30 符 4 翻和 60 符 3 翻是 7700 / 11600 点；开启切上满贯后直接按满贯 8000 / 12000 点算。"
-        case .cap: return "默认 13 翻及以上算累计役满。怕一把输太多可以设倍满（8 翻）或满贯（5 翻）封顶。"
-        case .penalty: return "推倒了却无役或凑不成和牌，赔另外三家各这么多点，这一局接着打。"
-        case .swap: return "朋友局一般不换座。"
+        case .rate: return tr("每桌自己定，换预设不会动这一项。比如千点 1 元时，满贯 8000 点就是 8 元。",
+                              "プリセットを変えてもこの設定は維持されます。1000点＝1の場合、満貫8000点は8になります。",
+                              "Kept when switching presets. At 1 per 1,000 pts, a Mangan (8,000 pts) is 8.")
+        case .rounds: return tr("标准半庄打东场 4 局 + 南场 4 局共 8 局；时间紧可以打东风战 4 局。",
+                                "標準の半荘戦は東場4局＋南場4局の計8局。短時間なら東風戦4局も選べます。",
+                                "Standard Hanchan plays East 1–4 + South 1–4 (8 hands). Choose East Only for a quick 4-hand game.")
+        case .minimum: return tr("立直麻将标准为 1 翻起和（宝牌不算役）。少数桌规要求 2 翻起和。",
+                                 "リーチ麻雀の標準は1翻縛り（ドラは役に含まない）です。",
+                                 "Standard Riichi Mahjong requires 1 han of yaku (Dora excluded).")
+        case .flowers: return tr("计入宝牌时，表宝牌、赤宝牌、里宝牌每张加 1 翻，但不计入 1 翻起和条件。",
+                                 "表ドラ・赤ドラ・裏ドラが各1翻加算されます（1翻縛りの役には含まれません）。",
+                                 "Dora, Red 5, and Ura-dora add +1 han each, but do not count toward the 1-han yaku minimum.")
+        case .base: return tr("标准规则下 30 符 4 翻和 60 符 3 翻是 7700 / 11600 点；开启切上满贯后直接按满贯 8000 / 12000 点算。",
+                              "通常30符4翻・60符3翻は7700/11600点ですが、切り上げ満貫をオンにすると8000/12000点になります。",
+                              "Normally 30 fu 4 han and 60 fu 3 han pay 7,700 / 11,600 pts; Kiriage Mangan rounds them up to 8,000 / 12,000.")
+        case .cap: return tr("默认 13 翻及以上算累计役满。怕一把输太多可以设倍满（8 翻）或满贯（5 翻）封顶。",
+                             "標準では13翻以上は数え役満です。上限を設ける場合は倍満（8翻）や満貫（5翻）を選べます。",
+                             "By default, 13+ han is Kazoe Yakuman. You can cap hands at Baiman (8 han) or Mangan (5 han).")
+        case .penalty: return tr("推倒了却无役或凑不成和牌，赔另外三家各这么多点，这一局接着打。",
+                                 "誤って手牌を倒した場合、他家3人にそれぞれこの点数を支払い、同局をやり直します。",
+                                 "Paid to each of the other 3 players on a false win; the hand is replayed.")
+        case .swap: return tr("朋友局一般不换座。", "友人同士の対局では通常席替えしません。", "Casual games usually keep fixed seats.")
         }
     }
 
@@ -310,17 +328,17 @@ enum RuleItem: String, Identifiable, CaseIterable {
 
     func value(_ rules: GameRules) -> (text: String, unit: String, isNumber: Bool) {
         switch self {
-        case .rate: return (rules.yuanPerPoint.yuanText, "元", true)
+        case .rate: return (rules.yuanPerPoint.yuanText, tr("元", "", ""), true)
         case .rounds:
-            if rules.totalHands == 8 { return ("半庄 8 局", "", false) }
-            if rules.totalHands == 4 { return ("东风 4 局", "", false) }
-            return ("\(rules.totalHands)", "局", true)
-        case .minimum: return ("\(rules.minimumFan)", "翻", true)
-        case .flowers: return (rules.includeFlowers ? "计宝牌" : "不计", "", false)
-        case .base: return (rules.kiriageMangan ? "开启" : "不切上", "", false)
-        case .cap: return rules.fanCap > 0 ? ("\(rules.fanCap) 翻", "", false) : ("不封顶", "", false)
-        case .penalty: return ("\(rules.falseWinPenalty) 点", "", false)
-        case .swap: return (rules.swapSeatsEachRound ? "换" : "不换", "", false)
+            if rules.totalHands == 8 { return (tr("半庄 8 局", "半荘8局", "Hanchan 8"), "", false) }
+            if rules.totalHands == 4 { return (tr("东风 4 局", "東風4局", "East 4"), "", false) }
+            return ("\(rules.totalHands)", tr("局", "局", "hands"), true)
+        case .minimum: return ("\(rules.minimumFan)", tr("翻", "翻", "han"), true)
+        case .flowers: return (rules.includeFlowers ? tr("计宝牌", "あり", "On") : tr("不计", "なし", "Off"), "", false)
+        case .base: return (rules.kiriageMangan ? tr("开启", "あり", "On") : tr("不切上", "なし", "Off"), "", false)
+        case .cap: return rules.fanCap > 0 ? (tr("\(rules.fanCap) 翻", "\(rules.fanCap)翻", "\(rules.fanCap) han"), "", false) : (tr("不封顶", "上限なし", "No Cap"), "", false)
+        case .penalty: return (tr("\(rules.falseWinPenalty) 点", "\(rules.falseWinPenalty)点", "\(rules.falseWinPenalty) pts"), "", false)
+        case .swap: return (rules.swapSeatsEachRound ? tr("换", "あり", "On") : tr("不换", "なし", "Off"), "", false)
         }
     }
 

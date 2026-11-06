@@ -21,6 +21,7 @@ struct EditHandSheet: View {
     /// 手动改的番数（含花）；nil 表示按牌算或者沿用原来的番数。
     @State private var fanEdit: Int?
     @State private var tenpai: Set<Int>
+    @State private var riichi: Set<Int>
     @State private var offender: Int
     @State private var confirmDelete = false
 
@@ -38,24 +39,28 @@ struct EditHandSheet: View {
             _selfDrawn = State(initialValue: win.isSelfDrawn)
             _discarder = State(initialValue: win.discarder)
             _tenpai = State(initialValue: [])
+            _riichi = State(initialValue: [])
             _offender = State(initialValue: win.winner)
         case .falseWin(let offender):
             _kind = State(initialValue: .falseWin)
             _winner = State(initialValue: offender)
             _selfDrawn = State(initialValue: true)
             _tenpai = State(initialValue: [])
+            _riichi = State(initialValue: [])
             _offender = State(initialValue: offender)
-        case .drawn(let tenpai):
+        case .drawn(let tenpai, let riichi):
             _kind = State(initialValue: .drawn)
             _winner = State(initialValue: 0)
             _selfDrawn = State(initialValue: true)
-            _tenpai = State(initialValue: tenpai)
+            _tenpai = State(initialValue: tenpai.union(riichi))
+            _riichi = State(initialValue: riichi)
             _offender = State(initialValue: 0)
         case .manual:
             _kind = State(initialValue: .manual)
             _winner = State(initialValue: 0)
             _selfDrawn = State(initialValue: true)
             _tenpai = State(initialValue: [])
+            _riichi = State(initialValue: [])
             _offender = State(initialValue: 0)
         }
     }
@@ -87,7 +92,7 @@ struct EditHandSheet: View {
             }
             return .win(win)
         case .drawn:
-            return .drawn(tenpai: tenpai)
+            return .drawn(tenpai: tenpai.union(riichi), riichi: riichi)
         case .falseWin:
             return .falseWin(offender: offender)
         case .manual:
@@ -124,7 +129,9 @@ struct EditHandSheet: View {
     private var minimumFan: Int { game.rules.minimumFan + flowerFan }
 
     private var blockedReason: String? {
-        if kind == .win && !selfDrawn && discarder == nil { return "选一下谁点的炮" }
+        if kind == .win && !selfDrawn && discarder == nil {
+            return tr("选一下谁点的炮", "放銃した人を選んでください", "Select who dealt in")
+        }
         if case .failure(let error) = preview { return error.message }
         return nil
     }
@@ -154,7 +161,7 @@ struct EditHandSheet: View {
                 .padding(.bottom, 16)
             }
             .bottomBar {
-                Button(blockedReason ?? "保存") {
+                Button(blockedReason ?? tr("保存", "保存", "Save")) {
                     if let outcome { onSave(outcome) }
                     dismiss()
                 }
@@ -236,14 +243,16 @@ struct EditHandSheet: View {
     }
 
     private var fanNote: String {
-        let flowers = flowerFan > 0 ? "含宝牌 \(flowerFan) 翻。" : ""
+        let flowers = flowerFan > 0 ? tr("含宝牌 \(flowerFan) 翻。", "ドラ \(flowerFan) 翻を含む。", "Includes \(flowerFan) Dora.") : ""
         if fanEdit != nil || originalWin?.fanOverride != nil || originalWin == nil {
-            return flowers + "翻数是手填的，账本里不再列役种。"
+            return flowers + tr("翻数是手填的，账本里不再列役种。", "翻数は手入力のため、役一覧は表示されません。", "Han entered manually; yaku breakdown hidden.")
         }
         if originalWin?.hand != nil {
-            return flowers + "按拍下的牌自动算，换了谁和、自摸还是点炮会重算。要直接改就点加减。"
+            return flowers + tr("按拍下的牌自动算，换了谁和、自摸还是点炮会重算。要直接改就点加减。",
+                                "牌姿から自動計算されます。直接変更するには＋/－を押してください。",
+                                "Auto-calculated from tiles. Tap +/- to override.")
         }
-        return flowers + "要改翻数就点加减。"
+        return flowers + tr("要改翻数就点加减。", "翻数を変更するには＋/－を押してください。", "Tap +/- to adjust han.")
     }
 
     // MARK: 流局
@@ -259,14 +268,31 @@ struct EditHandSheet: View {
                 NameChip(name: game.players[i].name, selected: selected) {
                     if selected {
                         tenpai.remove(i)
+                        riichi.remove(i)
                     } else {
                         tenpai.insert(i)
                     }
                 }
             }
         }
+        SectionLabel("这局有人立直吗（立直棒 1000 点留作供托）")
+            .padding(.top, 22)
+            .padding(.bottom, 10)
+        HStack(spacing: 8) {
+            ForEach(0..<4, id: \.self) { i in
+                let selected = riichi.contains(i)
+                NameChip(name: game.players[i].name, selected: selected) {
+                    if selected {
+                        riichi.remove(i)
+                    } else {
+                        riichi.insert(i)
+                        tenpai.insert(i)
+                    }
+                }
+            }
+        }
         note(tenpai.isEmpty || tenpai.count == 4
-             ? "全员不听或全员听牌不交换点数；庄家听牌则连庄，下一局加 1 本场。"
+             ? "全员不听或全员听牌不交换听牌罚符；庄家听牌则连庄，下一局加 1 本场。"
              : "不听牌的家合计付 3000 点给听牌的家；庄家听牌则连庄，下一局加 1 本场。")
     }
 
@@ -278,7 +304,9 @@ struct EditHandSheet: View {
             .padding(.top, 28)
             .padding(.bottom, 10)
         chips(selected: offender) { offender = $0 }
-        note("赔另外三家各 \(game.rules.falseWinPenalty) 分，不算一局。")
+        note(tr("赔另外三家各 \(game.rules.falseWinPenalty) 分，不算一局。",
+                "他3家に各 \(game.rules.falseWinPenalty) 点支払い、局は進みません。",
+                "Pays \(game.rules.falseWinPenalty) pts to each other player; hand replays."))
     }
 
     // MARK: 小部件
@@ -292,7 +320,7 @@ struct EditHandSheet: View {
     }
 
     private func note(_ text: String) -> some View {
-        Text(text)
+        Text(LocalizedStringKey(text))
             .font(.system(size: 14))
             .foregroundStyle(Theme.gray)
             .padding(.top, 16)

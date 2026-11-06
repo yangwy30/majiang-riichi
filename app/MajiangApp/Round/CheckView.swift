@@ -100,7 +100,7 @@ struct CheckView: View {
                     HStack(spacing: 10) {
                         Text("看结果")
                         Text("·").fontWeight(.light).opacity(0.7)
-                        Text("\(result.totalFan) 翻 \(result.fu) 符").monospacedDigit()
+                        Text(tr("\(result.totalFan) 翻 \(result.fu) 符", "\(result.totalFan)翻 \(result.fu)符", "\(result.totalFan) han \(result.fu) fu")).monospacedDigit()
                     }
                 }
             }
@@ -178,14 +178,18 @@ struct CheckView: View {
     }
 
     private var subtitle: String {
-        let who = flow.winnerChosen ? "\(winnerName)和了 · " : ""
-        if flow.source == "手动输入" { return who + "手动输入" }
+        let who = flow.winnerChosen ? tr("\(winnerName)和了 · ", "\(winnerName) 和了・", "\(winnerName) won · ") : ""
+        if flow.source == "手动输入" { return who + tr("手动输入", "手動入力", "Manual entry") }
         // 演示数据不看照片，一定要说清楚，不然会以为是认错了（截图模式除外）
-        if flow.source == "演示" && DemoScreen.current == nil { return "演示数据，没看你的照片 · 长按首页标题填 Key" }
-        let count = who + "认出 \(flow.hand.allTiles.count) 张"
+        if flow.source == "演示" && DemoScreen.current == nil {
+            return tr("演示数据，没看你的照片 · 长按首页标题填 Key", "デモデータ（写真は未解析）", "Demo data (photo not analyzed)")
+        }
+        let count = who + tr("认出 \(flow.hand.allTiles.count) 张", "\(flow.hand.allTiles.count)枚を認識", "Recognized \(flow.hand.allTiles.count) tiles")
         if flow.isReviewing { return count }
         if flow.source == "双读" {
-            return count + (flow.reviewAtLoad == 0 ? " · 两遍读得一样" : " · \(flow.reviewAtLoad) 张两遍不一样")
+            return count + (flow.reviewAtLoad == 0
+                            ? tr(" · 两遍读得一样", "・2回の認識が一致", " · Verified")
+                            : tr(" · \(flow.reviewAtLoad) 张两遍不一样", "・\(flow.reviewAtLoad)枚に差異あり", " · \(flow.reviewAtLoad) tile(s) to check"))
         }
         return count
     }
@@ -357,7 +361,9 @@ struct CheckView: View {
                 // 偶尔会卡到超时（一分钟），不让人干等
                 Button("不等了，就用现在这些牌 ›") {
                     flow.cancelRecognition()
-                    flow.notes.append("没等第二遍认完，只有第一遍的读法，对照照片看一眼")
+                    flow.notes.append(tr("没等第二遍认完，只有第一遍的读法，对照照片看一眼",
+                                         "2回目の読み取りをスキップしました。写真と見比べて確認してください",
+                                         "Skipped second pass; please double-check the tiles against the photo"))
                 }
                 .buttonStyle(.text(size: 14))
                 .transition(.opacity)
@@ -371,13 +377,17 @@ struct CheckView: View {
     private var problemCard: some View {
         let suggestion = flow.suggestions.first
         let minimum = game.rules.minimumFan
-        var title = "还凑不成和牌"
+        var title = tr("还凑不成和牌", "まだ和了形になっていません", "Not a valid winning hand yet")
         var reason: Text
         switch flow.scoring {
         case .success(let result):
             title = result.fanWithoutFlowers == 0
-                ? "无役，立直麻将至少要有 \(minimum) 翻役才能和"
-                : "只有 \(result.fanWithoutFlowers) 翻役，本场要 \(minimum) 翻才能和"
+                ? tr("无役，立直麻将至少要有 \(minimum) 翻役才能和",
+                     "役なし（和了には最低 \(minimum) 翻の役が必要です）",
+                     "No Yaku (at least \(minimum) han of yaku required)")
+                : tr("只有 \(result.fanWithoutFlowers) 翻役，本场要 \(minimum) 翻才能和",
+                     "役が \(result.fanWithoutFlowers) 翻のみ（この対局は \(minimum) 翻縛り）",
+                     "Only \(result.fanWithoutFlowers) han of yaku (\(minimum)-han minimum)")
             reason = Text("牌型没问题。如果这手立直了，在下面点一下「立直」；宝牌每张加 1 翻，但不算进起和役。")
         case .failure(.wrongTileCount):
             reason = Text("和牌一共 14 张（每个杠多 1 张），现在是 \(flow.hand.allTiles.count) 张。")
@@ -480,7 +490,7 @@ struct CheckView: View {
                 HStack(spacing: 8) {
                     ChoiceChip(title: "自摸", selected: flow.wayChosen && flow.selfDrawn) { flow.pickSelfDrawn() }
                     ForEach((0..<4).filter { $0 != flow.winner }, id: \.self) { i in
-                        ChoiceChip(title: "\(game.players[i].name)点炮",
+                        ChoiceChip(title: tr("\(game.players[i].name)点炮", "\(game.players[i].name) 放銃", "\(game.players[i].name) Dealt"),
                                    selected: flow.wayChosen && !flow.selfDrawn && flow.discarder == i) {
                             flow.pickDiscarder(i)
                         }
@@ -515,11 +525,16 @@ struct CheckView: View {
     }
 
     private var wayNote: String? {
-        if !flow.winnerChosen { return "先选上面谁和了。" }
+        if !flow.winnerChosen { return tr("先选上面谁和了。", "上で和了した人を先に選んでください。", "Select who won above first.") }
         if model.isSeasoned { return nil }
-        if !flow.wayChosen { return "自己摸到的选「自摸」；和的是别人打出的牌，就选打那张的人。" }
-        if flow.selfDrawn { return "自己摸到和的那张，三家都要付。" }
-        return "和的是\(flow.discarder.map { game.players[$0].name } ?? "别人")打出的牌。"
+        if !flow.wayChosen {
+            return tr("自己摸到的选「自摸」；和的是别人打出的牌，就选打那张的人。",
+                      "自分で引いたなら「ツモ」、他家の捨牌なら放銃した人を選びます。",
+                      "Tap Tsumo if self-drawn, or tap the player who discarded the winning tile.")
+        }
+        if flow.selfDrawn { return tr("自己摸到和的那张，三家都要付。", "ツモ和了は他家3人が支払います。", "Self-drawn win: all three other players pay.") }
+        let dName = flow.discarder.map { game.players[$0].name } ?? tr("别人", "他家", "another player")
+        return tr("和的是\(dName)打出的牌。", "\(dName)の捨牌でロン和了。", "Won by Ron off \(dName)'s discard.")
     }
 
     private var availableRare: [SpecialWin] { SpecialWin.allCases.filter { flow.isAvailable($0) } }
@@ -544,13 +559,15 @@ struct CheckView: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
-                            Text(isDouble ? "双立直" : "立直").font(.system(size: 16))
-                            Text("· \(isDouble ? 2 : 1) 翻")
+                            Text(isDouble ? SpecialWin.doubleRiichi.name : SpecialWin.riichi.name).font(.system(size: 16))
+                            Text(tr("· \(isDouble ? 2 : 1) 翻", "・\(isDouble ? 2 : 1)翻", "· \(isDouble ? 2 : 1) han"))
                                 .font(.system(size: 14))
                                 .foregroundStyle(Theme.gray)
                         }
                         if !model.isSeasoned {
-                            Text("门前清听牌后宣告立直").font(.system(size: 14)).foregroundStyle(Theme.gray)
+                            Text(tr("门前清听牌后宣告立直", "門前清で聴牌しリーチを宣言", "Declared Riichi with a closed tenpai hand"))
+                                .font(.system(size: 14))
+                                .foregroundStyle(Theme.gray)
                         }
                     }
                     Spacer()
@@ -567,7 +584,7 @@ struct CheckView: View {
                         flow.specials.insert(.ippatsu)
                     }
                 } label: {
-                    Text(isIppatsu ? "一发 +1 翻 ✓" : "+ 一发")
+                    Text(isIppatsu ? tr("一发 +1 翻 ✓", "一発 +1翻 ✓", "Ippatsu +1 ✓") : tr("+ 一发", "+ 一発", "+ Ippatsu"))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(isIppatsu ? .white : Theme.ink)
                         .padding(.horizontal, 10)
@@ -608,9 +625,9 @@ struct CheckView: View {
         var parts = otherRareOptions.filter { flow.specials.contains($0) }.map(\.name)
         let extraSticks = flow.riichiPlayers.subtracting([flow.winner]).count
         if extraSticks > 0 {
-            parts.append("立直棒 ×\(extraSticks)")
+            parts.append(tr("立直棒 ×\(extraSticks)", "リーチ棒×\(extraSticks)", "Riichi ×\(extraSticks)"))
         }
-        return parts.isEmpty ? "没有" : parts.joined(separator: "、")
+        return parts.isEmpty ? tr("没有", "なし", "None") : parts.joined(separator: tr("、", "・", ", "))
     }
 
     @ViewBuilder
@@ -691,11 +708,22 @@ struct CheckView: View {
     }
 
     private var flowers: some View {
-        HStack {
+        let isRiichi = flow.specials.contains(.riichi) || flow.specials.contains(.doubleRiichi)
+        return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("宝牌").font(.system(size: 16))
-                if !model.isSeasoned {
-                    Text("表宝、赤宝、里宝每张 1 翻，不算起和役").font(.system(size: 14)).foregroundStyle(Theme.gray)
+                if isRiichi {
+                    Text(tr("立直和牌别忘了翻里宝牌！表宝、里宝、赤宝每张 1 翻",
+                            "リーチ和了は裏ドラも確認！表・裏・赤ドラ各1翻",
+                            "Don't forget Ura-dora! Dora, Ura & Red 5 are +1 han each"))
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.vermilion)
+                } else if !model.isSeasoned {
+                    Text(tr("表宝、赤宝、里宝每张 1 翻，不算起和役",
+                            "表ドラ・赤ドラ・裏ドラは各1翻（役には含まれません）",
+                            "Dora, Red 5 & Ura-dora add +1 han each (not a yaku)"))
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.gray)
                 }
             }
             Spacer()
@@ -756,18 +784,20 @@ private struct QuestionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(onlyOneSide ? "第 \(index + 1) 张可能是多认的，照片里有这张吗？" : "第 \(index + 1) 张看不太清，是哪个？")
+            Text(onlyOneSide
+                 ? tr("第 \(index + 1) 张可能是多认的，照片里有这张吗？", "\(index + 1)枚目は余分に認識された可能性があります。実際にありますか？", "Tile #\(index + 1) might be extra. Is it in the photo?")
+                 : tr("第 \(index + 1) 张看不太清，是哪个？", "\(index + 1)枚目が不鮮明です。どちらですか？", "Tile #\(index + 1) is unclear. Which one is it?"))
                 .font(.system(size: 16, weight: .semibold))
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(candidates, id: \.self) { tile in
-                    option(title: onlyOneSide ? "有这张" : tile.displayName, wins: hint(for: tile)) {
+                    option(title: onlyOneSide ? tr("有这张", "ある", "Present") : tile.displayName, wins: hint(for: tile)) {
                         TileFace(tile: tile, width: 30)
                     } action: {
                         flow.choose(tile, at: index)
                     }
                 }
                 if tile.uncertain {
-                    option(title: "没有这张", wins: removalHint) {
+                    option(title: tr("没有这张", "ない", "Not there"), wins: removalHint) {
                         RoundedRectangle(cornerRadius: 30 * 0.16, style: .continuous)
                             .strokeBorder(Theme.faint, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                             .frame(width: 30, height: 40)
@@ -795,7 +825,7 @@ private struct QuestionCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.system(size: 16, weight: .medium))
                     if let wins {
-                        Text(wins ? "选这个能和" : "选这个和不了")
+                        Text(wins ? tr("选这个能和", "これで和了可能", "Can win") : tr("选这个和不了", "これでは和了不可", "Cannot win"))
                             .font(.system(size: 13))
                             .foregroundStyle(wins ? Theme.vermilion : Theme.gray)
                     }

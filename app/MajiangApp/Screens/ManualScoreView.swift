@@ -22,10 +22,10 @@ struct ManualScoreView: View {
 
     /// 不能保存时按钮上直接写原因。
     private var saveTitle: String {
-        if hasInvalid { return "只能填整数" }
-        if values.allSatisfy({ $0 == 0 }) { return "填上这一局的得失分" }
-        if sum != 0 { return "加起来要等于 0" }
-        return "保存"
+        if hasInvalid { return tr("只能填整数", "整数のみ入力できます", "Integers only") }
+        if values.allSatisfy({ $0 == 0 }) { return tr("填上这一局的得失分", "この局の収支を入力してください", "Enter point changes") }
+        if sum != 0 { return tr("加起来要等于 0", "合計を 0 にしてください", "Must sum to 0") }
+        return tr("保存", "保存", "Save")
     }
 
     var body: some View {

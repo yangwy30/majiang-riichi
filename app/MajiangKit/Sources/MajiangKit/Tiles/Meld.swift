@@ -44,9 +44,9 @@ public struct Meld: Hashable, Codable, Sendable {
 
     public var kindName: String {
         switch kind {
-        case .chow: "吃"
-        case .pung: "碰"
-        case .kong: isConcealed ? "暗杠" : "明杠"
+        case .chow: tr("吃", "チー", "Chi")
+        case .pung: tr("碰", "ポン", "Pon")
+        case .kong: isConcealed ? tr("暗杠", "暗槓", "Closed Kan") : tr("明杠", "明槓", "Open Kan")
         }
     }
 
@@ -81,7 +81,13 @@ public struct Meld: Hashable, Codable, Sendable {
 public enum Wind: Int, Codable, CaseIterable, Sendable {
     case east = 0, south, west, north
 
-    public var name: String { ["东", "南", "西", "北"][rawValue] }
+    public var name: String {
+        switch AppLang.current {
+        case .zh: return ["东", "南", "西", "北"][rawValue]
+        case .ja: return ["東", "南", "西", "北"][rawValue]
+        case .en: return ["East", "South", "West", "North"][rawValue]
+        }
+    }
     public var tile: Tile { Tile(.honors, rawValue + 1) }
 
     /// 逆时针下一个（东 → 南 → 西 → 北 → 东）。

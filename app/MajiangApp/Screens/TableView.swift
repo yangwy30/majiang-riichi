@@ -65,8 +65,11 @@ struct TableView: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text("账本").font(.system(size: 14, weight: .medium))
                     Spacer()
-                    Text(game.isFinished ? "打了 \(game.playedHandsCount) 局"
-                         : "打了 \(game.playedHandsCount) 局 · 还剩 \(game.remainingHands) 局")
+                    Text(game.isFinished
+                         ? tr("打了 \(game.playedHandsCount) 局", "全\(game.playedHandsCount)局", "\(game.playedHandsCount) hands played")
+                         : tr("打了 \(game.playedHandsCount) 局 · 还剩 \(game.remainingHands) 局",
+                              "\(game.playedHandsCount)局消化・残り\(game.remainingHands)局",
+                              "\(game.playedHandsCount) played · \(game.remainingHands) left"))
                         .font(.system(size: 14))
                 }
                 .foregroundStyle(Theme.gray)
@@ -102,7 +105,7 @@ struct TableView: View {
         }
         .bottomBar {
             if let record = justRecorded {
-                UndoBar(text: "已记下第 \(game.records.count) 局") { undo(record) }
+                UndoBar(text: tr("已记下第 \(game.records.count) 局", "第\(game.records.count)局を記録しました", "Recorded hand #\(game.records.count)")) { undo(record) }
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -186,8 +189,8 @@ struct TableView: View {
             }
         }
         .sheet(isPresented: $drawingHand) {
-            DrawHandSheet(game: game) { tenpai in
-                record { try $0.recordDraw(tenpai: tenpai) }
+            DrawHandSheet(game: game) { tenpai, riichi in
+                record { try $0.recordDraw(tenpai: tenpai, riichi: riichi) }
             }
         }
         .sheet(isPresented: $manualScoring) {
@@ -439,41 +442,64 @@ private struct UndoBar: View {
     }
 }
 
-/// 荒牌流局：点选哪几家听牌（可多选，0–4 人），自动计算不听罚 3000 点与庄家连庄/流庄。
+/// 荒牌流局：点选哪几家听牌（可多选，0–4 人）与哪几家立直（每家投 1000 点留作供托），自动计算不听罚 3000 点与庄家连庄/流庄。
 private struct DrawHandSheet: View {
     @Environment(\.dismiss) private var dismiss
     var game: Game
-    var onSave: (Set<Int>) -> Void
+    var onSave: (Set<Int>, Set<Int>) -> Void
 
     @State private var tenpai: Set<Int>
+    @State private var riichi: Set<Int>
 
-    init(game: Game, onSave: @escaping (Set<Int>) -> Void) {
+    init(game: Game, onSave: @escaping (Set<Int>, Set<Int>) -> Void) {
         self.game = game
         self.onSave = onSave
         _tenpai = State(initialValue: DemoScreen.current == .draw ? [0, 2] : [])
+        _riichi = State(initialValue: DemoScreen.current == .draw ? [0] : [])
     }
 
-    private var deltas: [Int] { Payment.drawDeltas(tenpai: tenpai) }
+    private var effectiveTenpai: Set<Int> { tenpai.union(riichi) }
+    private var deltas: [Int] { Payment.drawDeltas(tenpai: effectiveTenpai, riichi: riichi) }
     private var dealer: Int { game.dealer }
-    private var dealerTenpai: Bool { tenpai.contains(dealer) }
+    private var dealerTenpai: Bool { effectiveTenpai.contains(dealer) }
 
     private var summaryNote: String {
         let dealerName = game.players[dealer].name
         let nextHonba = game.currentHonba + 1
+        let nextPot = game.currentPot + riichi.count * 1000
+        let potNote = riichi.isEmpty ? "" : tr(
+            "，桌面供托累计 \(nextPot) 点归下次和牌者",
+            "（供託計\(nextPot)点は次の和了者へ）",
+            " (Pot \(nextPot) pts goes to next winner)"
+        )
         let dealerStatus = dealerTenpai
-            ? "庄家（\(dealerName)）听牌连庄 · 下一局为 \(nextHonba) 本场"
-            : "庄家（\(dealerName)）未听牌流庄 · 下一局为 \(nextHonba) 本场"
-        switch tenpai.count {
+            ? tr("庄家（\(dealerName)）听牌连庄 · 下一局为 \(nextHonba) 本场\(potNote)",
+                 "親（\(dealerName)）聴牌連荘・次局は\(nextHonba)本場\(potNote)",
+                 "Dealer (\(dealerName)) tenpai repeats · Next is \(nextHonba) honba\(potNote)")
+            : tr("庄家（\(dealerName)）未听牌流庄 · 下一局为 \(nextHonba) 本场\(potNote)",
+                 "親（\(dealerName)）不聴流局・次局は\(nextHonba)本場\(potNote)",
+                 "Dealer (\(dealerName)) noten rotates · Next is \(nextHonba) honba\(potNote)")
+        switch effectiveTenpai.count {
         case 0:
-            return "四家都没听牌，不交换点数。\(dealerStatus)。"
+            return tr("四家都没听牌，不交换听牌罚符。\(dealerStatus)。",
+                      "全員不聴のため不聴罰符の授受なし。\(dealerStatus)。",
+                      "All 4 players noten; no tenpai payments. \(dealerStatus).")
         case 4:
-            return "四家都听牌，不交换点数。\(dealerStatus)。"
+            return tr("四家都听牌，不交换听牌罚符。\(dealerStatus)。",
+                      "全員聴牌のため不聴罰符の授受なし。\(dealerStatus)。",
+                      "All 4 players tenpai; no tenpai payments. \(dealerStatus).")
         case 1:
-            return "1 家听牌收 +3000 点，其余 3 家各付 −1000 点。\(dealerStatus)。"
+            return tr("1 家听牌收 +3000 点，其余 3 家各付 −1000 点。\(dealerStatus)。",
+                      "1人聴牌（+3000点）、不聴3人が各−1000点。\(dealerStatus)。",
+                      "1 tenpai receives +3000 pts; 3 noten pay −1000 pts each. \(dealerStatus).")
         case 2:
-            return "2 家听牌各收 +1500 点，不听 2 家各付 −1500 点。\(dealerStatus)。"
+            return tr("2 家听牌各收 +1500 点，不听 2 家各付 −1500 点。\(dealerStatus)。",
+                      "2人聴牌（各+1500点）、不聴2人が各−1500点。\(dealerStatus)。",
+                      "2 tenpai receive +1500 pts each; 2 noten pay −1500 pts each. \(dealerStatus).")
         default:
-            return "3 家听牌各收 +1000 点，不听 1 家独付 −3000 点。\(dealerStatus)。"
+            return tr("3 家听牌各收 +1000 点，不听 1 家独付 −3000 点。\(dealerStatus)。",
+                      "3人聴牌（各+1000点）、不聴1人が−3000点。\(dealerStatus)。",
+                      "3 tenpai receive +1000 pts each; 1 noten pays −3000 pts. \(dealerStatus).")
         }
     }
 
@@ -486,11 +512,30 @@ private struct DrawHandSheet: View {
                         .padding(.bottom, 10)
                     HStack(spacing: 8) {
                         ForEach(0..<4, id: \.self) { i in
-                            let selected = tenpai.contains(i)
-                            NameChip(name: game.players[i].name + (i == dealer ? "·庄" : ""), selected: selected) {
+                            let selected = effectiveTenpai.contains(i)
+                            let dealerSuffix = i == dealer ? tr("·庄", "・親", "·D") : ""
+                            NameChip(name: game.players[i].name + dealerSuffix, selected: selected) {
                                 if selected {
                                     tenpai.remove(i)
+                                    riichi.remove(i)
                                 } else {
+                                    tenpai.insert(i)
+                                }
+                            }
+                        }
+                    }
+
+                    SectionLabel("这局有人立直吗（立直棒 1000 点留作供托）")
+                        .padding(.top, 20)
+                        .padding(.bottom, 10)
+                    HStack(spacing: 8) {
+                        ForEach(0..<4, id: \.self) { i in
+                            let selected = riichi.contains(i)
+                            NameChip(name: game.players[i].name, selected: selected) {
+                                if selected {
+                                    riichi.remove(i)
+                                } else {
+                                    riichi.insert(i)
                                     tenpai.insert(i)
                                 }
                             }
@@ -505,8 +550,8 @@ private struct DrawHandSheet: View {
                         .padding(.top, 14)
 
                     if deltas != [0, 0, 0, 0] {
-                        SectionLabel("听牌罚符收付")
-                            .padding(.top, 24)
+                        SectionLabel("本局点数变动")
+                            .padding(.top, 22)
                             .padding(.bottom, 8)
                         DeltaGrid(game: game, deltas: deltas)
                     }
@@ -516,7 +561,7 @@ private struct DrawHandSheet: View {
             }
             .bottomBar {
                 Button("记下流局") {
-                    onSave(tenpai)
+                    onSave(effectiveTenpai, riichi)
                     dismiss()
                 }
                 .buttonStyle(.primary)
@@ -528,7 +573,7 @@ private struct DrawHandSheet: View {
                 NavClose { dismiss() }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.height(540), .large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(30)
         .presentationBackground(Theme.paper)

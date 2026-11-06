@@ -28,10 +28,14 @@ struct ResultSheet: View {
                 // 谁和、怎么和的是记错最常见的地方：墨色写清楚，点一下收起结果回核对页改
                 Button { flow.showResult = false } label: {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(record.discarder.map { "\(name(record.winner)) · \(name($0))点炮" } ?? "\(name(record.winner)) · 自摸")
+                        Text(record.discarder.map {
+                            tr("\(name(record.winner)) · \(name($0))点炮",
+                               "\(name(record.winner))・\(name($0))放銃",
+                               "\(name(record.winner)) · Ron (\(name($0)))")
+                        } ?? tr("\(name(record.winner)) · 自摸", "\(name(record.winner))・ツモ", "\(name(record.winner)) · Tsumo"))
                             .font(.system(size: 17, weight: .medium))
                             .foregroundStyle(Theme.ink)
-                        Text("改 ›")
+                        Text(tr("改 ›", "修正 ›", "Edit ›"))
                             .font(.system(size: 15))
                             .foregroundStyle(Theme.gray)
                     }
@@ -47,8 +51,8 @@ struct ResultSheet: View {
                     Text("\(record.totalFan)")
                         .font(.system(size: 88, weight: .ultraLight).monospacedDigit())
                         .tracking(-2)
-                    Text("翻").font(Theme.serif(22))
-                    Text("· \(record.fu) 符")
+                    Text(tr("翻", "翻", "han")).font(Theme.serif(22))
+                    Text(tr("· \(record.fu) 符", "・\(record.fu)符", "· \(record.fu) fu"))
                         .font(.system(size: 20, weight: .light).monospacedDigit())
                         .foregroundStyle(Theme.gray)
                     if let limit {
@@ -59,7 +63,9 @@ struct ResultSheet: View {
                 }
                 .frame(maxWidth: .infinity)
                 if paid < record.totalFan {
-                    Text("桌规封顶 \(game.rules.fanCap) 翻：\(record.totalFan) 翻按 \(game.rules.fanCap) 算")
+                    Text(tr("桌规封顶 \(game.rules.fanCap) 翻：\(record.totalFan) 翻按 \(game.rules.fanCap) 算",
+                            "ルール上限 \(game.rules.fanCap)翻：\(record.totalFan)翻を\(game.rules.fanCap)翻として計算",
+                            "Capped at \(game.rules.fanCap) han (\(record.totalFan) han counted as \(game.rules.fanCap))"))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .padding(.horizontal, 12)
@@ -75,7 +81,7 @@ struct ResultSheet: View {
                     .padding(.top, 22)
                     .padding(.bottom, 6)
                 DeltaGrid(game: game, deltas: deltas)
-                Text(game.paymentExplanation(record, honba: game.currentHonba, deltas: deltas))
+                Text(game.paymentExplanation(record, honba: game.currentHonba, pot: game.currentPot, deltas: deltas))
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
                     .lineSpacing(3)

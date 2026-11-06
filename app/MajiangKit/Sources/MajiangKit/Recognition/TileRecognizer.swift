@@ -82,10 +82,14 @@ public enum RecognitionError: Error, Hashable, Sendable {
     public var message: String {
         switch self {
         case .unavailable(let why): why
-        case .nothingFound: "照片里没找到牌，靠近一点、亮一点再拍"
-        case .notConfigured: "还没有设置识别服务（在设置里填 Gemini API Key 或代理地址）"
-        case .network(let why): "网络出错：\(why)"
-        case .badResponse(let why): "识别结果看不懂：\(why)"
+        case .nothingFound: tr("照片里没找到牌，靠近一点、亮一点再拍",
+                               "牌が見つかりませんでした。もう少し近づけて明るい場所で撮ってください",
+                               "No tiles found in photo. Move closer with better lighting and try again")
+        case .notConfigured: tr("还没有设置识别服务（在设置里填 Gemini API Key 或代理地址）",
+                                "認識サービスが未設定です",
+                                "Recognition service not configured")
+        case .network(let why): tr("网络出错：\(why)", "通信エラー：\(why)", "Network error: \(why)")
+        case .badResponse(let why): tr("识别结果看不懂：\(why)", "応答エラー：\(why)", "Invalid response: \(why)")
         case .inviteRejected(let why): why
         }
     }

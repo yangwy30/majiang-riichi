@@ -25,7 +25,7 @@ struct SettleView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 PageTitle(title: "打完了",
-                          subtitle: "\(game.startedAt.dayLabel) · \(game.playedHandsCount) 局 · \(game.rulesSummary)")
+                          subtitle: "\(game.startedAt.dayLabel) · " + tr("\(game.playedHandsCount) 局", "全\(game.playedHandsCount)局", "\(game.playedHandsCount) hands") + " · \(game.rulesSummary)")
 
                 VStack(spacing: 0) {
                     ForEach(Array(ranking.enumerated()), id: \.element) { place, player in

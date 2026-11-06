@@ -51,7 +51,7 @@ struct TileEditSheet: View {
                 .padding(.vertical, 12)
             }
             .page()
-            .navigationTitle(title)
+            .navigationTitle(LocalizedStringKey(title))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 NavClose { dismiss() }

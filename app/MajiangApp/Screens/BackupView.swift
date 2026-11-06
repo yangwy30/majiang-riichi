@@ -58,8 +58,10 @@ struct BackupView: View {
         switch model.cloud.status {
         case .off: nil
         case .unavailable(let reason), .failed(let reason): reason
-        case .syncing: "正在同步…"
-        case .synced(let date): "已同步 · \(date.formatted(date: .omitted, time: .shortened))"
+        case .syncing: tr("正在同步…", "同期中…", "Syncing…")
+        case .synced(let date): tr("已同步 · \(date.formatted(date: .omitted, time: .shortened))",
+                                   "同期済み · \(date.formatted(date: .omitted, time: .shortened))",
+                                   "Synced · \(date.formatted(date: .omitted, time: .shortened))")
         }
     }
 
@@ -67,19 +69,23 @@ struct BackupView: View {
         do {
             ShareSheet.present([try model.exportFile()])
         } catch {
-            message = "导出失败：\(error.localizedDescription)"
+            message = tr("导出失败：\(error.localizedDescription)",
+                         "書き出し失敗：\(error.localizedDescription)",
+                         "Export failed: \(error.localizedDescription)")
         }
     }
 
     private func importFile(_ url: URL) {
         do {
             let summary = try model.importFile(url)
-            message = summary.isEmpty ? "文件里的牌局这台手机上都有了。"
-                : [summary.added > 0 ? "加了 \(summary.added) 场牌局" : nil,
-                   summary.updated > 0 ? "更新了 \(summary.updated) 场" : nil]
-                    .compactMap { $0 }.joined(separator: "，") + "。"
+            message = summary.isEmpty ? tr("文件里的牌局这台手机上都有了。", "ファイル内の対局はすべてこの端末にあります。", "All games in the file are already on this device.")
+                : [summary.added > 0 ? tr("加了 \(summary.added) 场牌局", "\(summary.added) 場追加", "Added \(summary.added) games") : nil,
+                   summary.updated > 0 ? tr("更新了 \(summary.updated) 场", "\(summary.updated) 場更新", "Updated \(summary.updated) games") : nil]
+                    .compactMap { $0 }.joined(separator: tr("，", "、", ", ")) + tr("。", "。", ".")
         } catch {
-            message = "这个文件读不出来，确认是「导出全部牌局」导出的文件。"
+            message = tr("这个文件读不出来，确认是「导出全部牌局」导出的文件。",
+                         "ファイルを読み込めませんでした。書き出した対局ファイルか確認してください。",
+                         "Could not read file. Make sure it was exported from this app.")
         }
     }
 }

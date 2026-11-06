@@ -12,7 +12,11 @@ struct FanList: View {
                        plain: entry.fan.explanation, points: entry.points)
             }
             if win.flowerFan > 0 {
-                FanRow(name: "宝牌 ×\(win.flowerFan)", plain: "表宝牌、赤宝牌、里宝牌每张 1 翻，不算进起和役", points: win.flowerFan)
+                FanRow(name: tr("宝牌 ×\(win.flowerFan)", "ドラ ×\(win.flowerFan)", "Dora ×\(win.flowerFan)"),
+                       plain: tr("表宝牌、赤宝牌、里宝牌每张 1 翻，不算进起和役",
+                                 "表ドラ・赤ドラ・裏ドラは1枚1翻（役にはなりません）",
+                                 "Dora, red 5s, and ura-dora add 1 han each (not a yaku)"),
+                       points: win.flowerFan)
             }
         }
     }
@@ -90,7 +94,7 @@ struct HandTiles: View {
         var standing = hand.concealed
         if let i = standing.lastIndex(of: hand.winningTile) { standing.remove(at: i) }
         if !standing.isEmpty { result.append(TileGroup(id: 100, tiles: standing)) }
-        result.append(TileGroup(id: 200, tiles: [hand.winningTile], mark: "和", isWinning: true))
+        result.append(TileGroup(id: 200, tiles: [hand.winningTile], mark: tr("和", "和", "Win"), isWinning: true))
         return result
     }
 

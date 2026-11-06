@@ -39,14 +39,29 @@ enum DemoScreen: String {
 
 #if DEBUG
 enum DemoData {
-    static let names = ["杨", "阿强", "莉莉", "小张"]
+    static var names: [String] {
+        switch AppLang.current {
+        case .zh: ["杨", "阿强", "莉莉", "小张"]
+        case .ja: ["佐藤", "鈴木", "高橋", "田中"]
+        case .en: ["Alex", "Ben", "Chloe", "Dan"]
+        }
+    }
+
+    static var extraNames: [String] {
+        switch AppLang.current {
+        case .zh: ["老王", "小周"]
+        case .ja: ["伊藤", "渡辺"]
+        case .en: ["Evan", "Finn"]
+        }
+    }
 
     static func archive() -> GameArchive {
         var archive = GameArchive()
         let players = names.map { Player(name: $0) }
+        let extra = extraNames
         let day: TimeInterval = 86_400
 
-        var older = Game(players: [players[0], players[1], Player(name: "老王"), players[3]], startedAt: Date().addingTimeInterval(-8 * day))
+        var older = Game(players: [players[0], players[1], Player(name: extra[0]), players[3]], startedAt: Date().addingTimeInterval(-8 * day))
         win(&older, winner: 2, discarder: 0, hand: "123m 456m 789s 234p 55s")
         win(&older, winner: 0, discarder: nil, hand: "234m 456m 678m 东东东 99m")
         older.end()
@@ -68,10 +83,10 @@ enum DemoData {
         win(&active, winner: 0, discarder: nil, hand: "1112233445566p 7p")
         win(&active, winner: 2, discarder: 1, melds: [.pung(Tile(suit: .honors, rank: 6)!)], hand: "234m 345s 45p 88s 6p")
         win(&active, winner: 1, discarder: nil, hand: "234m 456m 678m 东东东 99m")
-        _ = try? active.recordDraw(tenpai: [0, 2])
+        _ = try? active.recordDraw(tenpai: [0, 2], riichi: [0])
         archive.upsert(active)
 
-        archive.remember(players + [Player(name: "老王"), Player(name: "小周")])
+        archive.remember(players + extra.map { Player(name: $0) })
         return archive
     }
 

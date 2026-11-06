@@ -19,13 +19,13 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
 
     public var name: String {
         switch self {
-        case .riichi: return "立直"
-        case .ippatsu: return "一发"
-        case .doubleRiichi: return "双立直"
-        case .kongReplacement: return "岭上开花"
-        case .lastTileDraw: return "海底摸月"
-        case .lastTileClaim: return "河底捞鱼"
-        case .robbingTheKong: return "抢杠"
+        case .riichi: return tr("立直", "リーチ", "Riichi")
+        case .ippatsu: return tr("一发", "一発", "Ippatsu")
+        case .doubleRiichi: return tr("双立直", "ダブルリーチ", "Double Riichi")
+        case .kongReplacement: return tr("岭上开花", "嶺上開花", "Rinshan Kaihou")
+        case .lastTileDraw: return tr("海底摸月", "海底摸月", "Haitei")
+        case .lastTileClaim: return tr("河底捞鱼", "河底撈魚", "Houtei")
+        case .robbingTheKong: return tr("抢杠", "槍槓", "Chankan")
         }
     }
 
@@ -47,13 +47,13 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
     /// 一句白话说明。
     public var plain: String {
         switch self {
-        case .riichi: return "门前清听牌时宣布了立直"
-        case .ippatsu: return "立直后一巡内和牌，中间没人吃碰杠"
-        case .doubleRiichi: return "第一巡还没人吃碰杠时就立直了"
-        case .kongReplacement: return "杠完摸岭上牌，正好自摸和了"
-        case .lastTileDraw: return "摸牌山最后一张牌时自摸和了"
-        case .lastTileClaim: return "和的是别人打出的最后一张牌"
-        case .robbingTheKong: return "别人加杠时，正好抢和他加的那张"
+        case .riichi: return tr("门前清听牌时宣布了立直", "門前清で聴牌しリーチを宣言", "Declared Riichi with a closed tenpai hand")
+        case .ippatsu: return tr("立直后一巡内和牌，中间没人吃碰杠", "リーチ後1巡以内に和了（鳴きなし）", "Won within one turn after Riichi with no calls")
+        case .doubleRiichi: return tr("第一巡还没人吃碰杠时就立直了", "鳴きのない第1巡目にリーチを宣言", "Declared Riichi on the first turn with no calls")
+        case .kongReplacement: return tr("杠完摸岭上牌，正好自摸和了", "槓した後の嶺上牌でツモ和了", "Self-drawn win on the replacement tile after a kan")
+        case .lastTileDraw: return tr("摸牌山最后一张牌时自摸和了", "牌山の最後の1枚でツモ和了", "Self-drawn win on the last tile of the wall")
+        case .lastTileClaim: return tr("和的是别人打出的最后一张牌", "河の最後の打牌でロン和了", "Won by ron on the very last discard")
+        case .robbingTheKong: return tr("别人加杠时，正好抢和他加的那张", "他家の加槓牌でロン和了", "Won off a tile another player added to an open pung")
         }
     }
 
@@ -62,20 +62,24 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
         let isMenzen = hand.melds.allSatisfy { $0.kind == .kong && $0.isConcealed }
         switch self {
         case .riichi, .ippatsu, .doubleRiichi:
-            guard isMenzen else { return "有吃、碰、明杠时不能立直" }
+            guard isMenzen else { return tr("有吃、碰、明杠时不能立直", "鳴いている場合はリーチできません", "Cannot Riichi with an open hand") }
             return nil
         case .kongReplacement:
-            guard selfDrawn else { return "岭上开花只能是自摸" }
-            guard hand.melds.contains(where: { $0.kind == .kong }) else { return "这手牌没有杠" }
+            guard selfDrawn else { return tr("岭上开花只能是自摸", "嶺上開花はツモのみです", "Rinshan Kaihou requires Tsumo") }
+            guard hand.melds.contains(where: { $0.kind == .kong }) else { return tr("这手牌没有杠", "槓子がありません", "No kan in this hand") }
             return nil
         case .lastTileDraw:
-            return selfDrawn ? nil : "海底摸月只能是自摸"
+            return selfDrawn ? nil : tr("海底摸月只能是自摸", "海底摸月はツモのみです", "Haitei requires Tsumo")
         case .lastTileClaim:
-            return selfDrawn ? "河底捞鱼只能是点炮" : nil
+            return selfDrawn ? tr("河底捞鱼只能是点炮", "河底撈魚はロンのみです", "Houtei requires Ron") : nil
         case .robbingTheKong:
-            guard !selfDrawn else { return "抢杠只能是点炮" }
+            guard !selfDrawn else { return tr("抢杠只能是点炮", "槍槓はロンのみです", "Chankan requires Ron") }
             let ownCopies = hand.allTiles.filter { $0 == hand.winningTile }.count
-            return ownCopies > 1 ? "手牌里已经有 \(ownCopies) 张 \(hand.winningTile.displayName)，别人没法加杠这张" : nil
+            return ownCopies > 1 ? tr(
+                "手牌里已经有 \(ownCopies) 张 \(hand.winningTile.displayName)，别人没法加杠这张",
+                "手牌に \(hand.winningTile.displayName) が \(ownCopies) 枚あるため加槓できません",
+                "Already \(ownCopies) copies of \(hand.winningTile.displayName) in hand"
+            ) : nil
         }
     }
 
@@ -136,19 +140,43 @@ public enum WinAssistant {
         switch FanCalculator.score(hand, context: context) {
         case .success(let result):
             if result.meetsMinimum(minimumFan) { return nil }
-            let doraNote = result.flowerFan > 0 ? "（宝牌 \(result.flowerFan) 翻不算进起和役）" : ""
+            let doraNote = result.flowerFan > 0 ? tr(
+                "（宝牌 \(result.flowerFan) 翻不算进起和役）",
+                "（ドラ\(result.flowerFan)翻は役に含まれません）",
+                " (\(result.flowerFan) Dora han do not count as yaku)"
+            ) : ""
             if result.fanWithoutFlowers == 0 {
-                return "无役\(doraNote)，立直麻将至少要有 \(minimumFan) 翻役才能和。"
+                return tr(
+                    "无役\(doraNote)，立直麻将至少要有 \(minimumFan) 翻役才能和。",
+                    "役なし\(doraNote)。和了には\(minimumFan)翻以上の役が必要です。",
+                    "No yaku\(doraNote). At least \(minimumFan) han of yaku is required to win."
+                )
             }
-            return "只有 \(result.fanWithoutFlowers) 翻役\(doraNote)，本场要 \(minimumFan) 翻才能和。"
+            return tr(
+                "只有 \(result.fanWithoutFlowers) 翻役\(doraNote)，本场要 \(minimumFan) 翻才能和。",
+                "\(result.fanWithoutFlowers)翻のみ\(doraNote)。この卓は\(minimumFan)翻縛りです。",
+                "Only \(result.fanWithoutFlowers) han of yaku\(doraNote); \(minimumFan) han required."
+            )
         case .failure(.wrongTileCount):
             let expected = 14 - hand.melds.count * 3
-            return "张数不对：立牌应该是 \(expected) 张，现在是 \(hand.concealed.count) 张。"
+            return tr(
+                "张数不对：立牌应该是 \(expected) 张，现在是 \(hand.concealed.count) 张。",
+                "枚数が合いません：手牌は \(expected) 枚のはずですが、現在 \(hand.concealed.count) 枚です。",
+                "Wrong tile count: expected \(expected) standing tiles, got \(hand.concealed.count)."
+            )
         case .failure(.tileMoreThanFour):
-            let names = hand.overusedTiles.map(\.displayName).joined(separator: "、")
-            return "\(names) 超过了 4 张，一定有牌认错了。"
+            let names = hand.overusedTiles.map(\.displayName).joined(separator: tr("、", "・", ", "))
+            return tr(
+                "\(names) 超过了 4 张，一定有牌认错了。",
+                "\(names) が5枚以上あります。読み取り間違いがあります。",
+                "More than 4 copies of \(names); a tile was misread."
+            )
         case .failure(.notAWin):
-            return "这副牌凑不成和牌（需要 4 面子加 1 雀头，或七对子、国士无双）。"
+            return tr(
+                "这副牌凑不成和牌（需要 4 面子加 1 雀头，或七对子、国士无双）。",
+                "和了形になっていません（4面子1雀頭・七対子・国士無双のいずれかが必要）。",
+                "Not a winning hand shape (needs 4 groups + 1 pair, Seven Pairs, or Thirteen Orphans)."
+            )
         }
     }
 

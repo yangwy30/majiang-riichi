@@ -50,6 +50,24 @@ final class AppModel {
         didSet { UserDefaults.standard.set(recognitionMode.rawValue, forKey: "recognitionMode") }
     }
 
+    /// 语言设置：nil 为跟随系统，或者固定为 "zh-Hans" / "ja" / "en"。
+    var appLanguage: String? {
+        didSet {
+            if let appLanguage {
+                UserDefaults.standard.set(appLanguage, forKey: "appLanguage")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "appLanguage")
+            }
+        }
+    }
+
+    var currentLang: AppLang {
+        if let appLanguage, let lang = AppLang(rawValue: appLanguage) { return lang }
+        return AppLang.current
+    }
+
+    var locale: Locale { currentLang.locale }
+
     /// 后端代理地址（server/ 里的 Cloudflare Worker）；为空时直接调 Google（开发用）。
     /// 正式版默认走代理；开发版默认用自带的 Key 直连，想试代理就在设置里点「用我们的服务器」。
     var proxyURL: String {
@@ -107,6 +125,7 @@ final class AppModel {
         if DemoScreen.current == nil { GeminiKeychain.importBundledDevKey() }
         #endif
         self.recognitionMode = RecognitionMode(rawValue: UserDefaults.standard.string(forKey: "recognitionMode") ?? "") ?? .auto
+        self.appLanguage = UserDefaults.standard.string(forKey: "appLanguage")
         #if DEBUG
         self.proxyURL = UserDefaults.standard.string(forKey: "proxyURL") ?? ""
         #else

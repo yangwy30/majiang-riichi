@@ -8,6 +8,7 @@ struct MajiangApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
+                .environment(\.locale, model.locale)
         }
     }
 }

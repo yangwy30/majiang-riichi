@@ -84,13 +84,19 @@ final class CloudSync {
             switch try await container.accountStatus() {
             case .available: break
             case .noAccount:
-                status = .unavailable("这台手机没登录 iCloud，登录后会自动同步。")
+                status = .unavailable(tr("这台手机没登录 iCloud，登录后会自动同步。",
+                                         "iCloud にサインインしていません。サインインすると自動同期されます。",
+                                         "Not signed in to iCloud. Sign in to sync automatically."))
                 return
             case .restricted:
-                status = .unavailable("这台手机的 iCloud 被限制了（比如家长控制）。")
+                status = .unavailable(tr("这台手机的 iCloud 被限制了（比如家长控制）。",
+                                         "この端末では iCloud が制限されています。",
+                                         "iCloud is restricted on this device."))
                 return
             default:
-                status = .unavailable("现在连不上 iCloud，稍后会再试。")
+                status = .unavailable(tr("现在连不上 iCloud，稍后会再试。",
+                                         "現在 iCloud に接続できません。後で再試行します。",
+                                         "Cannot connect to iCloud right now. Will retry later."))
                 return
             }
             status = .syncing
@@ -104,15 +110,23 @@ final class CloudSync {
             persist()
             again = true
         } catch let error as CKError where error.code == .notAuthenticated {
-            status = .unavailable("这台手机没登录 iCloud，登录后会自动同步。")
+            status = .unavailable(tr("这台手机没登录 iCloud，登录后会自动同步。",
+                                     "iCloud にサインインしていません。サインインすると自動同期されます。",
+                                     "Not signed in to iCloud. Sign in to sync automatically."))
         } catch let error as CKError where error.code == .quotaExceeded {
-            status = .failed("iCloud 空间满了，牌局只存在这台手机上。")
+            status = .failed(tr("iCloud 空间满了，牌局只存在这台手机上。",
+                                "iCloud の空き容量が不足しています。対局はこの端末に保存されます。",
+                                "iCloud storage is full. Games are saved locally on this device."))
         } catch let error as CKError where [.networkUnavailable, .networkFailure, .serviceUnavailable, .requestRateLimited].contains(error.code) {
-            status = .failed("没有网络，联网后会自动同步。")
+            status = .failed(tr("没有网络，联网后会自动同步。",
+                                "オフラインです。オンラインになると自動同期されます。",
+                                "Offline. Will sync automatically when back online."))
         } catch {
             // 原始错误只记日志，界面上不出现英文报错
             Self.log.error("iCloud 同步失败：\(String(describing: error), privacy: .public)")
-            status = .failed("iCloud 同步暂时没成功，牌局都存在这台手机上，不会丢。稍后会自动再试。")
+            status = .failed(tr("iCloud 同步暂时没成功，牌局都存在这台手机上，不会丢。稍后会自动再试。",
+                                "iCloud 同期に一時的に失敗しましたが、対局はこの端末に安全に保存されています。",
+                                "iCloud sync paused. Your games are safely stored on this device and will sync later."))
         }
     }
 

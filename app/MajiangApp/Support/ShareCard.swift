@@ -57,11 +57,14 @@ struct ShareCard: View {
                     .minimumScaleFactor(0.8)
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text(game.isFinished ? "打完了" : "打到\(game.handLabel)")
+                Text(game.isFinished ? tr("打完了", "対局終了", "Game Over") : tr("打到\(game.handLabel)", "\(game.handLabel) 進行中", "Now at \(game.handLabel)"))
                     .font(.system(size: 26, weight: .semibold))
                     .tracking(-0.3)
-                Text(game.isFinished ? "一共 \(game.playedHandsCount) 局"
-                     : "打了 \(game.playedHandsCount) 局 · 还剩 \(game.remainingHands) 局")
+                Text(game.isFinished
+                     ? tr("一共 \(game.playedHandsCount) 局", "全\(game.playedHandsCount)局", "\(game.playedHandsCount) hands total")
+                     : tr("打了 \(game.playedHandsCount) 局 · 还剩 \(game.remainingHands) 局",
+                          "\(game.playedHandsCount)局消化・残り\(game.remainingHands)局",
+                          "\(game.playedHandsCount) played · \(game.remainingHands) left"))
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
             }
@@ -161,9 +164,12 @@ extension Game {
         guard let biggest = biggestWin else { return nil }
         let paid = rules.paidFan(biggest.win)
         let limit = Payment.limitName(han: paid, fu: biggest.win.fu, kiriageMangan: rules.kiriageMangan)
-        let suffix = limit.map { "\($0) \(paid) 翻" } ?? "\(paid) 翻 \(biggest.win.fu) 符"
-        return "最大的一手：\(players[biggest.win.winner].name)，"
-            + (biggest.win.fans.first.map { "\($0.fan.name) · " } ?? "") + suffix
+        let suffix = limit.map { tr("\($0) \(paid) 翻", "\($0) \(paid)翻", "\($0) \(paid) han") }
+            ?? tr("\(paid) 翻 \(biggest.win.fu) 符", "\(paid)翻\(biggest.win.fu)符", "\(paid) han \(biggest.win.fu) fu")
+        return tr("最大的一手：\(players[biggest.win.winner].name)，",
+                  "最高打点：\(players[biggest.win.winner].name)（",
+                  "Biggest hand: \(players[biggest.win.winner].name), ")
+            + (biggest.win.fans.first.map { "\($0.fan.name) · " } ?? "") + suffix + tr("", "）", "")
     }
 
     /// 文字版，复制到微信里直接能看。

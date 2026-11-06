@@ -1,4 +1,5 @@
 import CoreText
+import MajiangKit
 import SwiftUI
 import UIKit
 
@@ -47,6 +48,12 @@ enum Theme {
     /// 半粗体的子集（只有用到的几十个字，SIL OFL 许可，见 Resources/Fonts）。别的字会退回系统字体，
     /// 宋体里要加新字时得重新做子集。
     static func serif(_ size: CGFloat, semibold: Bool = false) -> Font {
+        if AppLang.current == .ja {
+            return .custom("HiraMinProN-W6", fixedSize: size)
+        }
+        if AppLang.current == .en {
+            return .system(size: size, weight: semibold ? .semibold : .bold, design: .serif)
+        }
         if let name = semibold ? serifFonts.semibold : serifFonts.bold { return .custom(name, fixedSize: size) }
         return .system(size: size, weight: semibold ? .semibold : .bold, design: .serif)
     }
@@ -182,7 +189,7 @@ struct NavBack: ToolbarContent {
                 HStack(spacing: 3) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .semibold))
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                 }
             }
             .buttonStyle(NavButtonStyle())
@@ -207,7 +214,7 @@ struct NavClose: ToolbarContent {
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
-            Button(title, action: action)
+            Button(LocalizedStringKey(title), action: action)
                 .buttonStyle(NavButtonStyle(color: color))
         }
         .withoutGlass()
@@ -254,13 +261,13 @@ extension ToolbarContent {
     }
 }
 
-/// 朱红印章「庄」。
+/// 朱红印章「庄」（日文为「親」，英文为「D」）。
 struct DealerStamp: View {
     var size: CGFloat = 22
 
     var body: some View {
-        Seal(text: "庄", size: size)
-            .accessibilityLabel("庄家")
+        Seal(text: tr("庄", "親", "D"), size: size)
+            .accessibilityLabel(tr("庄家", "親", "Dealer"))
     }
 }
 
@@ -285,7 +292,7 @@ struct SectionLabel: View {
     init(_ text: String) { self.text = text }
 
     var body: some View {
-        Text(text)
+        Text(LocalizedStringKey(text))
             .font(.system(size: 14, weight: .medium))
             .foregroundStyle(Theme.gray)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -299,11 +306,11 @@ struct PageTitle: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(.system(size: 30, weight: .semibold))
                 .tracking(-0.4)
             if let subtitle {
-                Text(subtitle)
+                Text(LocalizedStringKey(subtitle))
                     .font(.system(size: 15))
                     .foregroundStyle(Theme.gray)
             }
@@ -324,7 +331,7 @@ struct SegmentedSwitch<Value: Hashable>: View {
                 Button {
                     selection = value
                 } label: {
-                    Text(label)
+                    Text(LocalizedStringKey(label))
                         .font(.system(size: 15, weight: on ? .semibold : .regular))
                         .foregroundStyle(on ? Theme.ink : Theme.gray)
                         .frame(maxWidth: .infinity, minHeight: 36)
@@ -378,7 +385,7 @@ struct ChoiceChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(.system(size: 15, weight: selected ? .medium : .regular))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)

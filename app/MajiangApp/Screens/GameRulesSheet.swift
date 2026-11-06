@@ -60,8 +60,12 @@ struct GameRulesSheet: View {
     }
 
     private var buttonTitle: String {
-        guard changed else { return "好" }
-        return game.records.isEmpty ? "改好了" : "改，前面 \(game.records.count) 局一起重算"
+        guard changed else { return tr("好", "OK", "Done") }
+        return game.records.isEmpty
+            ? tr("改好了", "保存", "Save")
+            : tr("改，前面 \(game.records.count) 局一起重算",
+                 "変更して過去 \(game.records.count) 局を再計算",
+                 "Save & recalculate \(game.records.count) hands")
     }
 
     /// 每个人的分数从多少变成多少（四个人排一行）；起和调高后不够番的局单独说一句。
@@ -70,7 +74,9 @@ struct GameRulesSheet: View {
         let new = updated.scores
         let moved = (0..<4).contains { old[$0] != new[$0] }
         let below = updated.winsBelowMinimum.compactMap { record in
-            updated.records.firstIndex { $0.id == record.id }.map { "第 \($0 + 1) 局" }
+            updated.records.firstIndex { $0.id == record.id }.map {
+                tr("第 \($0 + 1) 局", "第\($0 + 1)局", "Hand \($0 + 1)")
+            }
         }
         return VStack(alignment: .leading, spacing: 8) {
             Hairline()

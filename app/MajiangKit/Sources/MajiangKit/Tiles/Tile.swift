@@ -19,10 +19,10 @@ public enum Suit: Int, Codable, CaseIterable, Sendable {
 
     public var chineseName: String {
         switch self {
-        case .characters: "万"
-        case .bamboo: "条"
-        case .dots: "饼"
-        case .honors: "字"
+        case .characters: tr("万", "萬", "m")
+        case .bamboo: tr("条", "索", "s")
+        case .dots: tr("饼", "筒", "p")
+        case .honors: tr("字", "字", "z")
         }
     }
 }
@@ -80,6 +80,8 @@ public struct Tile: Hashable, Comparable, Sendable {
     // MARK: 文字
 
     static let honorNames = ["东", "南", "西", "北", "中", "发", "白"]
+    static let honorNamesJA = ["東", "南", "西", "北", "中", "發", "白"]
+    static let honorNamesEN = ["East", "South", "West", "North", "Red", "Green", "White"]
     static let chineseNumerals = ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
 
     /// 机器记法，与测试脚本、Gemini 输出一致：`5p`、`3m`、`7s`，字牌直接写汉字。
@@ -89,7 +91,14 @@ public struct Tile: Hashable, Comparable, Sendable {
 
     /// 给人看的名字：`5饼`、`3万`、`东`。
     public var displayName: String {
-        isHonor ? Tile.honorNames[rank - 1] : "\(rank)\(suit.chineseName)"
+        if isHonor {
+            switch AppLang.current {
+            case .zh: return Tile.honorNames[rank - 1]
+            case .ja: return Tile.honorNamesJA[rank - 1]
+            case .en: return Tile.honorNamesEN[rank - 1]
+            }
+        }
+        return "\(rank)\(suit.chineseName)"
     }
 
     /// 牌面上的大字：万子写「五」，字牌写「中」，饼条不用。
