@@ -203,6 +203,7 @@ struct TableView: View {
         }
         .onAppear {
             if model.demoScreen == .table { justRecorded = game.records.last }
+            if model.demoScreen == .draw { drawingHand = true }
             if model.demoScreen == .editHand, game.records.count > 1 {
                 editing = EditTarget(record: game.records[1], number: 2)
             }
@@ -444,7 +445,13 @@ private struct DrawHandSheet: View {
     var game: Game
     var onSave: (Set<Int>) -> Void
 
-    @State private var tenpai: Set<Int> = []
+    @State private var tenpai: Set<Int>
+
+    init(game: Game, onSave: @escaping (Set<Int>) -> Void) {
+        self.game = game
+        self.onSave = onSave
+        _tenpai = State(initialValue: DemoScreen.current == .draw ? [0, 2] : [])
+    }
 
     private var deltas: [Int] { Payment.drawDeltas(tenpai: tenpai) }
     private var dealer: Int { game.dealer }

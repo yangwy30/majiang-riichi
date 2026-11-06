@@ -5,7 +5,7 @@ import MajiangKit
 /// 数据存在临时目录，不会碰真的牌局记录。只在开发版里有。
 enum DemoScreen: String {
     case emptyHome = "empty-home"
-    case home, newGame = "new-game", table, editHand = "edit-hand", capture, check, notWin = "not-win", result, settle
+    case home, newGame = "new-game", table, draw, editHand = "edit-hand", capture, check, checkReady = "check-ready", notWin = "not-win", result, settle
     /// 双读：端侧结果已显示、Gemini 还在复核；复核完、有一张两边读得不一样和一张只有一边读到。
     case reviewing = "check-reviewing", dualRead = "check-dual"
     /// 发到群里的账本图：打完的结算 / 没打完的牌局；备份与换手机页。
@@ -34,7 +34,7 @@ enum DemoScreen: String {
     }
 
     /// 在牌桌上自动打开记一局。
-    var opensRound: Bool { [.capture, .check, .notWin, .result, .resultCapped, .reviewing, .dualRead].contains(self) }
+    var opensRound: Bool { [.capture, .check, .checkReady, .notWin, .result, .resultCapped, .reviewing, .dualRead].contains(self) }
 }
 
 #if DEBUG
@@ -67,8 +67,8 @@ enum DemoData {
         var active = Game(players: players, rules: houseRules)
         win(&active, winner: 0, discarder: nil, hand: "1112233445566p 7p")
         win(&active, winner: 2, discarder: 1, melds: [.pung(Tile(suit: .honors, rank: 6)!)], hand: "234m 345s 45p 88s 6p")
+        win(&active, winner: 1, discarder: nil, hand: "234m 456m 678m 东东东 99m")
         _ = try? active.recordDraw(tenpai: [0, 2])
-        win(&active, winner: 3, discarder: nil, hand: "234m 456m 678m 东东东 99m")
         archive.upsert(active)
 
         archive.remember(players + [Player(name: "老王"), Player(name: "小周")])
@@ -135,6 +135,14 @@ enum DemoData {
         switch screen {
         case .check:
             flow.load(samples[0])
+            flow.steps = [.check]
+        case .checkReady:
+            flow.load(samples[0])
+            flow.choose(Tile(suit: .dots, rank: 5)!, at: 9)
+            flow.pickSelfDrawn()
+            flow.specials = [.riichi, .ippatsu]
+            flow.flowerCount = 2
+            flow.riichiPlayers = [0]
             flow.steps = [.check]
         case .notWin:
             flow.load(samples[2])
