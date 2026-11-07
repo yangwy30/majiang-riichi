@@ -64,10 +64,10 @@ struct RulesGuideView: View {
                 ForEach(groups, id: \.points) { group in
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         if group.points == 13 {
-                            Text(tr("役满", "役満", "Yakuman")).font(Theme.serif(22, semibold: true))
+                            Text(tr("役满", "役満", "Yakuman")).font(Theme.glyph(22, semibold: true))
                         } else {
                             Text("\(group.points)").font(Theme.score(24, weight: .semibold))
-                            Text(tr("翻", "翻", "han")).font(Theme.serif(15))
+                            Text(tr("翻", "翻", "han")).font(Theme.glyph(15))
                         }
                     }
                     .padding(.top, 24)

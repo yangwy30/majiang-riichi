@@ -48,7 +48,7 @@ struct ShareCard: View {
         .environment(\.colorScheme, .light)
     }
 
-    /// 藍色抬头：局况大字，日期和规则小字。
+    /// 绿毡抬头（底边一条胡桃木）：局况大字，日期和规则小字。
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -74,11 +74,11 @@ struct ShareCard: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.75))
         }
-        .foregroundStyle(.white)
         .padding(.horizontal, 24)
         .padding(.top, 24)
         .padding(.bottom, 20)
-        .background(Color(hex: 0x23395B))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(FeltHeader())
     }
 
     private var standings: some View {
@@ -86,10 +86,10 @@ struct ShareCard: View {
             ForEach(Array(ranking.enumerated()), id: \.element) { place, player in
                 HStack(spacing: 14) {
                     Text("\(place + 1)")
-                        .font(Theme.serif(13))
+                        .font(Theme.glyph(13))
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
-                        .background(place == 0 ? Theme.vermilion : Color(hex: 0x23395B), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        .background(place == 0 ? Theme.felt[1] : Theme.tileInk, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                     Text(game.players[player].name)
                         .font(.system(size: 17, weight: .medium))
                         .lineLimit(1)
@@ -245,5 +245,11 @@ enum ShareSheet {
         } else {
             present([game.shareText])
         }
+    }
+}
+
+private struct FeltHeader: ViewModifier {
+    func body(content: Content) -> some View {
+        FeltBanner { content }
     }
 }

@@ -98,6 +98,23 @@ extension Game {
     /// 现在手上的点数（净得失是 `scores`）。
     func currentPoints(of player: Int) -> Int { Game.startingPoints + scores[player] }
 
+    /// 牌桌顶上的大字：「东 3 局」。打完了是「终局」。
+    var handLabelShort: String {
+        if isFinished { return tr("终局", "終局", "Final") }
+        let wind = prevalentWind(ofHand: displayHand).name
+        let kyoku = displayHand % 4 + 1
+        return tr("\(wind) \(kyoku) 局", "\(wind)\(kyoku)局", "\(wind) \(kyoku)")
+    }
+
+    /// 大字下面一行：「半庄 · 还剩 6 局」「东风战 · 打了 4 局」。
+    var progressLine: String {
+        let mode = rules.totalHands == 4 ? tr("东风战", "東風戦", "East only") : tr("半庄", "半荘", "Hanchan")
+        let rest = isFinished
+            ? tr("打了 \(playedHandsCount) 局", "全\(playedHandsCount)局", "\(playedHandsCount) hands")
+            : tr("还剩 \(remainingHands) 局", "残り\(remainingHands)局", "\(remainingHands) left")
+        return mode + tr(" · ", "・", " · ") + rest
+    }
+
     /// 「¥76」「−¥12.5」。
     func moneyText(_ points: Int) -> String {
         let value = money(forPoints: points)

@@ -9,7 +9,7 @@ struct MainTabs: View {
         @Bindable var model = model
         TabView(selection: $model.selectedTab) {
             GameTab()
-                .tabItem { Label(tr("牌局", "対局", "Table"), systemImage: "location.north.line") }
+                .tabItem { Label(tr("牌局", "対局", "Table"), systemImage: "square.grid.2x2") }
                 .tag(AppTab.game)
             HistoryView()
                 .tabItem { Label(tr("记录", "履歴", "History"), systemImage: "list.bullet.rectangle") }
@@ -21,7 +21,7 @@ struct MainTabs: View {
                 .tabItem { Label(tr("更多", "その他", "More"), systemImage: "slider.horizontal.3") }
                 .tag(AppTab.more)
         }
-        .tint(Theme.vermilion)
+        .tint(Theme.positive)
         .toolbar(.hidden, for: .navigationBar)
     }
 }
@@ -48,17 +48,15 @@ private struct EmptyGameView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 PageTitle(title: tr("日麻算番", "麻雀カメラ計算", "Riichi Scorer"),
-                          subtitle: tr("立直麻将 · 拍一下，翻符和点数都算好",
-                                       "リーチ麻雀・撮るだけで翻符と点数を計算",
+                          subtitle: tr("拍一下和了的牌，翻符和点数都算好",
+                                       "和了の手牌を撮るだけで翻符と点数を計算",
                                        "Snap the winning hand. Han, fu and points done."))
-                CompassBoard.empty
-                    .padding(.top, 20)
-                ActionCard(symbol: "plus",
-                           title: tr("开一局", "対局を始める", "Start a game"),
-                           detail: tr("填好四个人的名字就能开始", "4人の名前を入れるだけ", "Just enter four names")) {
+                TableBoard.empty
+                    .padding(.top, 24)
+                TableActions(symbol: "plus", title: tr("开一局", "対局を始める", "Start a game"), secondary: nil) {
                     model.path.append(.newGame)
                 }
-                .padding(.top, 12)
+                .padding(.top, 24)
 
                 if let error = model.loadError {
                     Text(error)
@@ -75,48 +73,56 @@ private struct EmptyGameView: View {
     }
 }
 
-/// 主操作大卡片：藍底白字，左边一个符号，右边一个箭头。
-struct ActionCard: View {
+/// 牌桌下面的一排操作：主操作是墨色胶囊（带图标），旁边一个玻璃胶囊。点下去轻震一下。
+struct TableActions: View {
     var symbol: String
     var title: String
-    var detail: String
+    var secondary: String?
     var action: () -> Void
+    var secondaryAction: () -> Void = {}
+
+    @State private var taps = 0
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: symbol)
-                    .font(.system(size: 26, weight: .regular))
-                    .frame(width: 34)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(Theme.heading(title, size: 20))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    Text(detail)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.75))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.6))
+        HStack(spacing: 10) {
+            Button {
+                taps += 1
+                action()
+            } label: {
+                Label(title, systemImage: symbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .foregroundStyle(.white)
+                    .background(Theme.fill, in: Capsule())
+                    .shadow(color: .black.opacity(0.18), radius: 10, y: 6)
+                    .contentShape(Capsule())
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: 84)
-            .background(Theme.indigo, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+            .buttonStyle(PressFade())
+            if let secondary {
+                Button {
+                    taps += 1
+                    secondaryAction()
+                } label: {
+                    Text(secondary)
+                        .font(.system(size: 16, weight: .semibold))
+                        .padding(.horizontal, 22)
+                        .frame(minHeight: 54)
+                        .glassCapsule()
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(PressFade())
+            }
         }
-        .buttonStyle(ActionCardPress())
+        .sensoryFeedback(.impact(weight: .medium), trigger: taps)
     }
 }
 
-private struct ActionCardPress: ButtonStyle {
+struct PressFade: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.opacity(configuration.isPressed ? 0.82 : 1)
+        configuration.label
+            .opacity(configuration.isPressed ? 0.8 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

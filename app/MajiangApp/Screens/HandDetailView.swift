@@ -69,7 +69,7 @@ struct HandDetailView: View {
                     Text(win.isSelfDrawn
                          ? tr("\(game.players[win.winner].name)自摸", "\(game.players[win.winner].name) ツモ", "\(game.players[win.winner].name) Tsumo")
                          : tr("\(game.players[win.winner].name)和", "\(game.players[win.winner].name) ロン", "\(game.players[win.winner].name) Ron"))
-                        .font(Theme.serif(28, semibold: true))
+                        .font(Theme.glyph(28, semibold: true))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Spacer(minLength: 12)
@@ -80,7 +80,7 @@ struct HandDetailView: View {
                         }
                         Text("\(win.totalFan)")
                             .font(Theme.score(40, weight: .semibold))
-                        Text(tr("翻", "翻", "han")).font(Theme.serif(18))
+                        Text(tr("翻", "翻", "han")).font(Theme.glyph(18))
                         Text(tr("· \(win.fu) 符", "・\(win.fu)符", "· \(win.fu) fu"))
                             .font(Theme.score(16))
                             .foregroundStyle(Theme.gray)
@@ -156,7 +156,7 @@ struct HandDetailView: View {
                 SectionLabel("这局谁付多少")
                     .padding(.top, 24)
                     .padding(.bottom, 6)
-                DeltaGrid(game: game, deltas: record.deltas)
+                DeltaGrid(game: game, deltas: record.deltas, hand: record.handIndex)
                 Text(game.paymentExplanation(win, honba: record.honba, pot: record.pot, deltas: record.deltas))
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)

@@ -41,10 +41,8 @@ struct NewGameView: View {
                     ForEach(0..<4, id: \.self) { i in
                         HStack(spacing: 14) {
                             // 门风跟着第一局的庄走：庄是东，往下南、西、北
-                            Text(Theme.windGlyph(Wind(rawValue: (i - dealerRow + 4) % 4)!.name))
-                                .font(Theme.serif(15))
-                                .foregroundStyle(Theme.gray)
-                                .frame(width: 22, alignment: .leading)
+                            WindTile(text: Theme.windGlyph(Wind(rawValue: (i - dealerRow + 4) % 4)!.name),
+                                     isDealer: i == dealerRow, width: 22)
                             TextField(Self.seatHints[i], text: $names[i])
                                 .font(.system(size: 17))
                                 .focused($focused, equals: i)

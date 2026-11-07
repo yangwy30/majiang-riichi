@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Writes the washi + indigo colour sets (light and dark) into the asset catalog. Run from app/."""
+"""Writes the walnut-and-felt page colours (light and dark) into the asset catalog. Run from app/.
+Table materials (felt, walnut, tiles) are fixed colours in Theme.swift and do not change with dark mode."""
 import json, pathlib
 
 CATALOG = pathlib.Path("MajiangApp/Resources/Assets.xcassets")
 COLORS = {
-    "WashiPaper": ("F6F1E7", "10151F"),
-    "WashiCard": ("FFFCF5", "1A2130"),
-    "WashiInk": ("1C2A40", "ECE6D9"),
-    "WashiIndigo": ("23395B", "3B5B8F"),
-    "WashiVermilion": ("C8402A", "D9543C"),
-    "WashiGray": ("6B6358", "A79F92"),
-    "WashiFaint": ("A69D8E", "6F6A62"),
-    "WashiLine": ("E0D8C8", "2B3446"),
-    "WashiLineSoft": ("ECE5D7", "232B3B"),
-    "WashiSegment": ("EAE3D4", "232B3B"),
+    "TablePaper": ("F4F3EF", "121513"),
+    "TableCard": ("FFFFFF", "1C201E"),
+    "TableInk": ("1B1F1D", "ECEDEB"),
+    "TableFill": ("1B1F1D", "2E7353"),
+    "TableRed": ("D2402F", "E5574A"),
+    "TablePositive": ("215A40", "6FC39A"),
+    "TableGray": ("6E7370", "A4A8A5"),
+    "TableFaint": ("A3A6A2", "6A6E6B"),
+    "TableLine": ("DDDBD4", "2B2F2C"),
+    "TableLineSoft": ("E8E6E0", "232725"),
+    "TableSegment": ("EAE8E2", "232725"),
 }
 
 def component(hex_color):

@@ -34,7 +34,7 @@ struct TileFace: View {
         .overlay {
             if state == .doubt || state == .wrong {
                 RoundedRectangle(cornerRadius: width * 0.16 + 3, style: .continuous)
-                    .strokeBorder(Theme.vermilion, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    .strokeBorder(Theme.red, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                     .padding(-4.5)
             }
         }
@@ -44,7 +44,7 @@ struct TileFace: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 18, height: 18)
-                    .background(Theme.vermilion, in: Circle())
+                    .background(Theme.red, in: Circle())
                     .offset(x: 7, y: -7)
             }
         }

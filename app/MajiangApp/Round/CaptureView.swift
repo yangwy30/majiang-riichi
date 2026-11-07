@@ -135,7 +135,7 @@ struct CaptureView: View {
                 CameraPreview(camera: camera)
             } else {
                 // 没有相机（模拟器）或没给权限：画一手示意牌
-                RadialGradient(colors: [Color(hex: 0x33445F), Color(hex: 0x1F2B40), Color(hex: 0x151D2B)],
+                RadialGradient(colors: [Color(hex: 0x2F4A3E), Color(hex: 0x1C2B24), Color(hex: 0x141E19)],
                                center: UnitPoint(x: 0.5, y: 0.45), startRadius: 0, endRadius: 320)
                 // 外屏这种窄取景框里放不下 20 宽的牌，换小一号
                 ViewThatFits(in: .horizontal) {

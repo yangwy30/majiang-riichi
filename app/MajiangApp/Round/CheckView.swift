@@ -265,7 +265,7 @@ struct CheckView: View {
                         // 和的那张下面盖一个朱红小印「和」
                         Group {
                             if index == winningIndex {
-                                Seal(text: "和", size: 16).accessibilityLabel("和的那张")
+                                Seal(text: "和", size: 16, color: Theme.fill).accessibilityLabel("和的那张")
                             } else {
                                 Color.clear
                             }
@@ -428,7 +428,7 @@ struct CheckView: View {
                         .padding(.trailing, 18)
                         .frame(height: 44)
                         .foregroundStyle(.white)
-                        .background(Theme.indigo, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(Theme.fill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .buttonStyle(.plain)
@@ -591,7 +591,7 @@ struct CheckView: View {
                         .foregroundStyle(isIppatsu ? .white : Theme.ink)
                         .padding(.horizontal, 10)
                         .frame(height: 28)
-                        .background(isIppatsu ? Theme.vermilion : Theme.lineSoft, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(isIppatsu ? Theme.fill : Theme.lineSoft, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -608,7 +608,7 @@ struct CheckView: View {
             } label: {
                 ZStack {
                     Circle().strokeBorder(Theme.faint, lineWidth: 1).opacity(active ? 0 : 1)
-                    Circle().fill(Theme.vermilion).opacity(active ? 1 : 0)
+                    Circle().fill(Theme.red).opacity(active ? 1 : 0)
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.white)
@@ -691,7 +691,7 @@ struct CheckView: View {
                         Spacer()
                         ZStack {
                             Circle().strokeBorder(Theme.faint, lineWidth: 1).opacity(on ? 0 : 1)
-                            Circle().fill(Theme.indigo).opacity(on ? 1 : 0)
+                            Circle().fill(Theme.fill).opacity(on ? 1 : 0)
                             Image(systemName: "checkmark")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(.white)
@@ -719,7 +719,7 @@ struct CheckView: View {
                             "リーチ和了は裏ドラも確認！表・裏・赤ドラ各1翻",
                             "Don't forget Ura-dora! Dora, Ura & Red 5 are +1 han each"))
                         .font(.system(size: 14))
-                        .foregroundStyle(Theme.vermilion)
+                        .foregroundStyle(Theme.ink)
                 } else if !model.isSeasoned {
                     Text(tr("表宝、赤宝、里宝每张 1 翻，不算起和役",
                             "表ドラ・赤ドラ・裏ドラは各1翻（役には含まれません）",
@@ -829,7 +829,7 @@ private struct QuestionCard: View {
                     if let wins {
                         Text(wins ? tr("选这个能和", "これで和了可能", "Can win") : tr("选这个和不了", "これでは和了不可", "Cannot win"))
                             .font(.system(size: 13))
-                            .foregroundStyle(wins ? Theme.vermilion : Theme.gray)
+                            .foregroundStyle(wins ? Theme.positive : Theme.gray)
                     }
                 }
                 Spacer(minLength: 0)

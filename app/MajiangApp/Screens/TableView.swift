@@ -51,11 +51,11 @@ struct TableView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                // 矮屏（iPhone Duo 外屏、SE、mini）罗盘小一圈，账本多露出一行
-                CompassBoard(game: game, compact: pageHeight > 0 && pageHeight < 640)
-                    .padding(.top, 10)
+                // 矮屏（iPhone Duo 外屏、SE、mini）牌桌小一圈，账本多露出一行
+                TableBoard(game: game, compact: pageHeight > 0 && pageHeight < 640)
+                    .padding(.top, 16)
                 actions(game)
-                    .padding(.top, 10)
+                    .padding(.top, 24)
 
                 HStack(alignment: .firstTextBaseline) {
                     Text("账本").font(.system(size: 13, weight: .medium))
@@ -71,7 +71,7 @@ struct TableView: View {
                 if game.records.isEmpty {
                     Text(game.isFinished
                          ? tr("这场没有记录。", "記録はありません。", "No hands recorded.")
-                         : tr("还没有记录。有人和了就点上面的卡片。", "まだ記録がありません。和了が出たら上のカードをタップ。", "No hands yet. Tap the card above when someone wins."))
+                         : tr("还没有记录。有人和了就点上面的按钮。", "まだ記録がありません。和了が出たら上のボタンをタップ。", "No hands yet. Tap the button above when someone wins."))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .padding(.vertical, 14)
@@ -177,9 +177,9 @@ struct TableView: View {
         }
     }
 
-    /// 顶上一行：左边标题（打完的牌局多一个返回），右边发到群和更多。
+    /// 顶上：左边大字局顺和一行进度（打完的牌局是日期，多一个返回），右边发到群和更多。
     private func header(_ game: Game) -> some View {
-        HStack(spacing: 4) {
+        HStack(alignment: .top, spacing: 4) {
             if !isRoot {
                 Button { model.path.removeLast() } label: {
                     Image(systemName: "chevron.left")
@@ -190,11 +190,16 @@ struct TableView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(tr("返回", "戻る", "Back"))
             }
-            let title = isRoot ? tr("牌局", "対局", "Table") : game.startedAt.dayLabel
-            Text(title)
-                .font(Theme.heading(title, size: 28))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            VStack(alignment: .leading, spacing: 2) {
+                let title = isRoot ? game.handLabelShort : game.startedAt.dayLabel
+                Text(title)
+                    .font(Theme.heading(title, size: 32))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(game.progressLine)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.gray)
+            }
             Spacer(minLength: 8)
             // 一点就把现在的账本图发到微信群，大家不用凑过来看
             Button { ShareSheet.share(game) } label: { headerIcon("square.and.arrow.up") }
@@ -225,29 +230,18 @@ struct TableView: View {
             .contentShape(Rectangle())
     }
 
-    /// 主操作：有人和了（拍照）；流局放旁边一个小卡片。打完了换成看结算。
+    /// 主操作：有人和了（拍照），旁边一个玻璃的流局。打完了换成看结算。
     @ViewBuilder
     private func actions(_ game: Game) -> some View {
         if game.isFinished {
             Button("看结算") { settle(game) }
                 .buttonStyle(.primary)
         } else {
-            HStack(spacing: 10) {
-                ActionCard(symbol: "camera.viewfinder",
-                           title: tr("有人和了", "和了を記録", "Someone won"),
-                           detail: tr("拍一下，算翻符、记点数", "撮影して翻符と点数を計算", "Snap it to score the hand")) {
-                    recording = true
-                }
-                Button { drawingHand = true } label: {
-                    Text(tr("流局", "流局", "Draw"))
-                        .font(Theme.serif(17, semibold: true))
-                        .frame(width: 66, height: 84)
-                        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.line, lineWidth: 0.5))
-                        .contentShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tr("这局流局", "この局は流局", "This hand was a draw"))
+            TableActions(symbol: "camera", title: tr("有人和了", "和了を記録", "Someone won"),
+                         secondary: tr("流局", "流局", "Draw")) {
+                recording = true
+            } secondaryAction: {
+                drawingHand = true
             }
         }
     }
@@ -355,7 +349,7 @@ private struct RecordRow: View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(handMark)
-                    .font(Theme.serif(14, semibold: true))
+                    .font(Theme.glyph(14, semibold: true))
                     .foregroundStyle(Theme.gray)
                     .frame(width: 28, alignment: .leading)
                 VStack(alignment: .leading, spacing: 3) {
@@ -402,7 +396,7 @@ private struct UndoBar: View {
         .padding(.leading, 16)
         .padding(.trailing, 4)
         .frame(height: 40)
-        .background(Theme.indigo, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Theme.fill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -528,7 +522,7 @@ private struct DrawHandSheet: View {
                         SectionLabel("本局点数变动")
                             .padding(.top, 22)
                             .padding(.bottom, 8)
-                        DeltaGrid(game: game, deltas: deltas)
+                        DeltaGrid(game: game, deltas: deltas, hand: game.displayHand)
                     }
                 }
                 .padding(.horizontal, 24)

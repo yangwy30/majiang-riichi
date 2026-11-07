@@ -37,40 +37,43 @@ private struct FanRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            Text(tr("\(points)翻", "\(points)翻", "\(points) han")).font(Theme.score(15))
+            Text("\(points)").font(Theme.score(16, weight: .regular)).foregroundStyle(Theme.gray)
         }
-        .padding(.vertical, 11)
-        .overlay(alignment: .bottom) { Hairline(color: Theme.lineSoft) }
+        .padding(.vertical, 12)
+        .overlay(alignment: .bottom) { Hairline(color: Theme.line) }
         .accessibilityElement(children: .combine)
     }
 }
 
-/// 「这局谁付多少」：四个人一排，上下两道细线。
+/// 「这局谁付多少」：四个人一排，按那一局的东南西北排，每人上面一张风牌（庄家描红边）。
 struct DeltaGrid: View {
     var game: Game
     var deltas: [Int]
+    /// 第几局（定风位和庄家）。
+    var hand: Int
+
+    private var seatOrder: [Int] {
+        (0..<4).sorted { game.seatWind(of: $0, inHand: hand).rawValue < game.seatWind(of: $1, inHand: hand).rawValue }
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Hairline()
-            HStack(alignment: .top, spacing: 8) {
-                ForEach(0..<4, id: \.self) { i in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(game.players[i].name).font(.system(size: 14)).foregroundStyle(Theme.gray).lineLimit(1)
-                        Text(Theme.signed(deltas[i]))
-                            .font(Theme.score(20))
-                            .foregroundStyle(Theme.scoreColor(deltas[i]))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityElement(children: .combine)
+        HStack(alignment: .top, spacing: 8) {
+            ForEach(seatOrder, id: \.self) { i in
+                VStack(spacing: 6) {
+                    WindTile(text: Theme.windGlyph(game.seatWind(of: i, inHand: hand).name),
+                             isDealer: game.dealer(ofHand: hand) == i, width: 22)
+                    Text(game.players[i].name).font(.system(size: 12)).foregroundStyle(Theme.gray).lineLimit(1)
+                    Text(Theme.signed(deltas[i]))
+                        .font(Theme.score(16))
+                        .foregroundStyle(Theme.scoreColor(deltas[i]))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .combine)
             }
-            .padding(.top, 14)
-            .padding(.bottom, 12)
-            Hairline()
         }
+        .padding(.vertical, 6)
     }
 }
 
@@ -119,7 +122,7 @@ struct HandTiles: View {
                             // 一组吃碰杠只在中间那张下面写一次
                             Text(i == (group.tiles.count - 1) / 2 ? group.mark ?? " " : " ")
                                 .font(.system(size: 12, weight: group.isWinning ? .medium : .regular))
-                                .foregroundStyle(group.isWinning ? Theme.vermilion : Theme.gray)
+                                .foregroundStyle(group.isWinning ? Theme.ink : Theme.gray)
                                 .fixedSize()
                         }
                     }

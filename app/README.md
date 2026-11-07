@@ -28,7 +28,7 @@ app/
 | `MajiangKit/Sources/MajiangKit/Scoring` | `FanCalculator` 算番（81 番 + 明暗杠，花牌单独计、不计入起和），`WinAssistant` 不成和时给改牌建议，`SpecialWin` 特殊情况的置灰规则 |
 | `MajiangKit/Sources/MajiangKit/Game` | 牌局：圈风、门风、庄家自动轮转（不连庄，可选每圈换座），自摸/点炮收付，荒庄，错和，手动记分，改或删以前的局（后面的局数、风位、番数、分数重算），最少转账，JSON 存档 |
 | `MajiangKit/Sources/MajiangKit/Recognition` | `TileRecognizer` 协议和几种实现，见下 |
-| `MajiangApp` | 四个 tab（牌局、记录、役表、更多）和推进来的页：开局、牌桌（也是账本）、拍照（内嵌取景器）、核对、结果（弹出层）、结算，加改局、家规（`HouseRulesForm`、`GameRulesSheet`）、填邀请码（`InviteView`）、规则说明、直接改分、备份和开发版设置。视觉规范「和纸与藍」在 `Support/Theme.swift`，颜色在 `Assets.xcassets` 的 `Washi*` |
+| `MajiangApp` | 四个 tab（牌局、记录、役表、更多）和推进来的页：开局、牌桌（也是账本）、拍照（内嵌取景器）、核对、结果（弹出层）、结算，加改局、家规（`HouseRulesForm`、`GameRulesSheet`）、填邀请码（`InviteView`）、规则说明、直接改分、备份和开发版设置。视觉规范「胡桃木牌桌」在 `Support/Theme.swift`，页面颜色在 `Assets.xcassets` 的 `Table*` |
 
 ### 识别
 
