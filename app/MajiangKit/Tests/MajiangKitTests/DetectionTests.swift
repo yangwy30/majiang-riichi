@@ -77,7 +77,7 @@ final class DetectionTests: XCTestCase {
         detections.append(TileDetection(box: box(60, 580), score: 0.8, label: .flower))  // 手牌前面的花
         let recognition = TileLayout.recognition(from: detections)
         XCTAssertEqual(recognition.concealed.map(\.tile), Tile.parseList("1112233445566p中中中"))
-        XCTAssertEqual(recognition.flowerCount, 1)
+        XCTAssertEqual(recognition.flowerCount, 0, "立直麻将没有花牌")
         XCTAssertTrue(recognition.notes.first?.contains("4 张") ?? false, "\(recognition.notes)")
         XCTAssertTrue(recognition.melds.isEmpty, "端侧分不出副露")
     }

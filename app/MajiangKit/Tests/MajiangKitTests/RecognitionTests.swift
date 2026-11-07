@@ -30,7 +30,7 @@ final class RecognitionTests: XCTestCase {
         let result = try await recognizer.recognize(RecognitionRequest(image: Data([0xFF, 0xD8])))
         XCTAssertEqual(result.concealed.map(\.tile), Tile.parseList("123m55p"))
         XCTAssertEqual(result.melds, [.pung(Tile(.honors, 1)), .kong(Tile(.bamboo, 9), concealed: true), .chow(Tile(.dots, 2))!])
-        XCTAssertEqual(result.flowerCount, 2)
+        XCTAssertEqual(result.flowerCount, 0, "宝牌不再由模型数")
 
         let request = try XCTUnwrap(http.requests.first)
         XCTAssertEqual(request.value(forHTTPHeaderField: "x-goog-api-key"), "test-key")

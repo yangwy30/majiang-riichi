@@ -21,6 +21,12 @@ public struct WinContext: Hashable, Codable, Sendable {
     public var flowerCount: Int
     /// 是否允许副露断幺九（喰断）。默认 true。
     public var allowKuitan: Bool
+    /// 表宝牌指示牌，含开杠翻出来的杠宝牌。
+    public var doraIndicators: [Tile]
+    /// 里宝牌指示牌，含杠里宝牌。只有立直和牌才算。
+    public var uraIndicators: [Tile]
+    /// 这桌算不算宝牌（桌规关掉时指示牌、赤五都不算）。
+    public var countsDora: Bool
 
     public init(
         prevalentWind: Wind = .east,
@@ -33,7 +39,10 @@ public struct WinContext: Hashable, Codable, Sendable {
         lastTileOfItsKind: Bool = false,
         kongInvolved: Bool = false,
         flowerCount: Int = 0,
-        allowKuitan: Bool = true
+        allowKuitan: Bool = true,
+        doraIndicators: [Tile] = [],
+        uraIndicators: [Tile] = [],
+        countsDora: Bool = true
     ) {
         self.prevalentWind = prevalentWind
         self.seatWind = seatWind
@@ -46,11 +55,27 @@ public struct WinContext: Hashable, Codable, Sendable {
         self.kongInvolved = kongInvolved
         self.flowerCount = flowerCount
         self.allowKuitan = allowKuitan
+        self.doraIndicators = doraIndicators
+        self.uraIndicators = uraIndicators
+        self.countsDora = countsDora
+    }
+
+    /// 这手牌的宝牌张数。
+    public func doraBreakdown(for hand: Hand) -> DoraBreakdown {
+        guard countsDora else { return DoraBreakdown(indicator: 0, ura: 0, red: 0, manual: 0) }
+        let tiles = hand.allTiles
+        return DoraBreakdown(
+            indicator: Dora.count(in: tiles, indicators: doraIndicators),
+            ura: riichi || doubleRiichi ? Dora.count(in: tiles, indicators: uraIndicators) : 0,
+            red: Dora.redCount(in: tiles),
+            manual: flowerCount
+        )
     }
 
     enum CodingKeys: String, CodingKey {
         case prevalentWind, seatWind, selfDrawn, riichi, doubleRiichi, ippatsu
         case lastTileOfWall, lastTileOfItsKind, kongInvolved, flowerCount, allowKuitan
+        case doraIndicators, uraIndicators, countsDora
     }
 
     public init(from decoder: Decoder) throws {
@@ -66,6 +91,9 @@ public struct WinContext: Hashable, Codable, Sendable {
         kongInvolved = try c.decodeIfPresent(Bool.self, forKey: .kongInvolved) ?? false
         flowerCount = try c.decodeIfPresent(Int.self, forKey: .flowerCount) ?? 0
         allowKuitan = try c.decodeIfPresent(Bool.self, forKey: .allowKuitan) ?? true
+        doraIndicators = try c.decodeIfPresent([Tile].self, forKey: .doraIndicators) ?? []
+        uraIndicators = try c.decodeIfPresent([Tile].self, forKey: .uraIndicators) ?? []
+        countsDora = try c.decodeIfPresent(Bool.self, forKey: .countsDora) ?? true
     }
 }
 
@@ -357,8 +385,7 @@ public enum FanCalculator {
         appendAllTileYaku(to: &entries, allTiles: allTiles, isMenzen: true, allowKuitan: context.allowKuitan, isStandard: false)
 
         let sorted = entries.sorted { ($0.points, -$0.fan.rawValue) > ($1.points, -$1.fan.rawValue) }
-        let dora = max(0, context.flowerCount)
-        return ScoringResult(fans: sorted, flowerFan: dora, fu: 25)
+        return ScoringResult(fans: sorted, flowerFan: context.doraBreakdown(for: hand).total, fu: 25)
     }
 
     // MARK: - 标准形计分（4 面子 + 1 雀头）
@@ -577,8 +604,7 @@ public enum FanCalculator {
         }
 
         let sorted = entries.sorted { ($0.points, -$0.fan.rawValue) > ($1.points, -$1.fan.rawValue) }
-        let dora = max(0, context.flowerCount)
-        return ScoringResult(fans: sorted, flowerFan: dora, fu: fu)
+        return ScoringResult(fans: sorted, flowerFan: context.doraBreakdown(for: hand).total, fu: fu)
     }
 
     private static func evaluateStandardYakuman(

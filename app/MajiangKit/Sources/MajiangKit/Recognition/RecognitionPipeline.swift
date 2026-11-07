@@ -90,6 +90,8 @@ public struct DualReadRecognizer: ProgressiveTileRecognizer {
             case .both(let i, let j):
                 var tile = base.concealed[i]
                 if a[j] != tile.tile { tile.alternatives = Array(Set(tile.alternatives + [a[j]])).sorted() }
+                // 端侧模型分不出赤五，只要有一边读出来就算。
+                else if a[j].isRed { tile.tile = a[j] }
                 concealed.append(tile)
             case .baseOnly(let i):
                 var tile = base.concealed[i]
@@ -101,12 +103,6 @@ public struct DualReadRecognizer: ProgressiveTileRecognizer {
         }
         merged.concealed = concealed
 
-        if base.flowerCount != other.flowerCount {
-            merged.flowerCount = max(base.flowerCount, other.flowerCount)
-            merged.notes.append(tr("宝牌两遍数得不一样（一遍 \(base.flowerCount) 张，一遍 \(other.flowerCount) 张），在下面改",
-                                   "ドラの枚数が一致しませんでした（\(base.flowerCount)枚 / \(other.flowerCount)枚）。下で調整してください",
-                                   "Dora count differed between passes (\(base.flowerCount) vs \(other.flowerCount)); adjust below"))
-        }
         return merged
     }
 
