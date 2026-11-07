@@ -13,14 +13,20 @@ public struct WinContext: Hashable, Codable, Sendable {
     public var ippatsu: Bool
     /// 海底摸月（自摸）/ 河底捞鱼（点炮）。
     public var lastTileOfWall: Bool
-    /// 兼容旧字段。
-    public var lastTileOfItsKind: Bool
+    /// 第一巡无人副露时的自摸和牌：庄家是天和，闲家是地和。
+    public var firstTurnWin: Bool
     /// 岭上开花（自摸）/ 抢杠（点炮）。
     public var kongInvolved: Bool
-    /// 宝牌总数（含表宝牌、赤宝牌、里宝牌）。每张 +1 翻，不算进起和役。
-    public var flowerCount: Int
+    /// 手动增减的宝牌张数，加在指示牌和赤五自动数出的张数上。每张 +1 翻，不算进起和役。
+    public var doraCount: Int
     /// 是否允许副露断幺九（喰断）。默认 true。
     public var allowKuitan: Bool
+    /// 表宝牌指示牌，含开杠翻出来的杠宝牌。
+    public var doraIndicators: [Tile]
+    /// 里宝牌指示牌，含杠里宝牌。只有立直和牌才算。
+    public var uraIndicators: [Tile]
+    /// 这桌算不算宝牌（桌规关掉时指示牌、赤五都不算）。
+    public var countsDora: Bool
 
     public init(
         prevalentWind: Wind = .east,
@@ -30,10 +36,13 @@ public struct WinContext: Hashable, Codable, Sendable {
         doubleRiichi: Bool = false,
         ippatsu: Bool = false,
         lastTileOfWall: Bool = false,
-        lastTileOfItsKind: Bool = false,
+        firstTurnWin: Bool = false,
         kongInvolved: Bool = false,
-        flowerCount: Int = 0,
-        allowKuitan: Bool = true
+        doraCount: Int = 0,
+        allowKuitan: Bool = true,
+        doraIndicators: [Tile] = [],
+        uraIndicators: [Tile] = [],
+        countsDora: Bool = true
     ) {
         self.prevalentWind = prevalentWind
         self.seatWind = seatWind
@@ -42,16 +51,35 @@ public struct WinContext: Hashable, Codable, Sendable {
         self.doubleRiichi = doubleRiichi
         self.ippatsu = ippatsu
         self.lastTileOfWall = lastTileOfWall
-        self.lastTileOfItsKind = lastTileOfItsKind
+        self.firstTurnWin = firstTurnWin
         self.kongInvolved = kongInvolved
-        self.flowerCount = flowerCount
+        self.doraCount = doraCount
         self.allowKuitan = allowKuitan
+        self.doraIndicators = doraIndicators
+        self.uraIndicators = uraIndicators
+        self.countsDora = countsDora
+    }
+
+    /// 这手牌的宝牌张数。
+    public func doraBreakdown(for hand: Hand) -> DoraBreakdown {
+        guard countsDora else { return DoraBreakdown(indicator: 0, ura: 0, red: 0, manual: 0) }
+        let tiles = hand.allTiles
+        return DoraBreakdown(
+            indicator: Dora.count(in: tiles, indicators: doraIndicators),
+            ura: riichi || doubleRiichi ? Dora.count(in: tiles, indicators: uraIndicators) : 0,
+            red: Dora.redCount(in: tiles),
+            manual: doraCount
+        )
     }
 
     enum CodingKeys: String, CodingKey {
         case prevalentWind, seatWind, selfDrawn, riichi, doubleRiichi, ippatsu
-        case lastTileOfWall, lastTileOfItsKind, kongInvolved, flowerCount, allowKuitan
+        case lastTileOfWall, firstTurnWin, kongInvolved, doraCount, allowKuitan
+        case doraIndicators, uraIndicators, countsDora
     }
+
+    /// 开发版存档里的旧名字。
+    private enum LegacyKeys: String, CodingKey { case lastTileOfItsKind, flowerCount }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -60,36 +88,42 @@ public struct WinContext: Hashable, Codable, Sendable {
         selfDrawn = try c.decodeIfPresent(Bool.self, forKey: .selfDrawn) ?? false
         riichi = try c.decodeIfPresent(Bool.self, forKey: .riichi) ?? false
         doubleRiichi = try c.decodeIfPresent(Bool.self, forKey: .doubleRiichi) ?? false
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
         ippatsu = try c.decodeIfPresent(Bool.self, forKey: .ippatsu) ?? false
         lastTileOfWall = try c.decodeIfPresent(Bool.self, forKey: .lastTileOfWall) ?? false
-        lastTileOfItsKind = try c.decodeIfPresent(Bool.self, forKey: .lastTileOfItsKind) ?? false
+        firstTurnWin = try c.decodeIfPresent(Bool.self, forKey: .firstTurnWin)
+            ?? legacy.decodeIfPresent(Bool.self, forKey: .lastTileOfItsKind) ?? false
         kongInvolved = try c.decodeIfPresent(Bool.self, forKey: .kongInvolved) ?? false
-        flowerCount = try c.decodeIfPresent(Int.self, forKey: .flowerCount) ?? 0
+        doraCount = try c.decodeIfPresent(Int.self, forKey: .doraCount)
+            ?? legacy.decodeIfPresent(Int.self, forKey: .flowerCount) ?? 0
         allowKuitan = try c.decodeIfPresent(Bool.self, forKey: .allowKuitan) ?? true
+        doraIndicators = try c.decodeIfPresent([Tile].self, forKey: .doraIndicators) ?? []
+        uraIndicators = try c.decodeIfPresent([Tile].self, forKey: .uraIndicators) ?? []
+        countsDora = try c.decodeIfPresent(Bool.self, forKey: .countsDora) ?? true
     }
 }
 
 public struct ScoringResult: Hashable, Codable, Sendable {
     public let fans: [FanEntry]
     /// 宝牌翻数（不算进起和役；役满时不额外加宝牌）。
-    public let flowerFan: Int
+    public let doraFan: Int
     /// 符数（七对子固定 25 符，平和自摸 20 符，其余按 10 符进位，最少 30 符）。
     public let fu: Int
 
-    public init(fans: [FanEntry], flowerFan: Int = 0, fu: Int = 30) {
+    public init(fans: [FanEntry], doraFan: Int = 0, fu: Int = 30) {
         self.fans = fans
-        self.flowerFan = flowerFan
+        self.doraFan = doraFan
         self.fu = fu
     }
 
     /// 不含宝牌的役种翻数。立直麻将要求至少 1 翻役才能和。
-    public var fanWithoutFlowers: Int {
+    public var fanWithoutDora: Int {
         fans.reduce(0) { $0 + $1.points }
     }
 
     /// 含宝牌的总翻数。
     public var totalFan: Int {
-        fanWithoutFlowers + flowerFan
+        fanWithoutDora + doraFan
     }
 
     public var isYakuman: Bool {
@@ -98,7 +132,7 @@ public struct ScoringResult: Hashable, Codable, Sendable {
 
     /// 够不够起和翻数（立直麻将默认 1 翻起和，宝牌不计入）。
     public func meetsMinimum(_ minimum: Int = 1) -> Bool {
-        fanWithoutFlowers >= minimum
+        fanWithoutDora >= minimum
     }
 
     public func contains(_ fan: Fan) -> Bool {
@@ -153,8 +187,8 @@ public enum FanCalculator {
 
     private static func isBetterCandidate(_ a: ScoringResult, _ b: ScoringResult) -> Bool {
         // 先确保有役的排在无役前面
-        let aValid = a.fanWithoutFlowers > 0
-        let bValid = b.fanWithoutFlowers > 0
+        let aValid = a.fanWithoutDora > 0
+        let bValid = b.fanWithoutDora > 0
         if aValid != bValid { return !aValid && bValid }
 
         let aBase = Payment.basePoints(han: a.totalFan, fu: a.fu)
@@ -171,10 +205,10 @@ public enum FanCalculator {
         // 1. 国士无双
         if hand.melds.isEmpty && isKokushiShape(hand.concealed) {
             var fans = [FanEntry(fan: .kokushi, count: 1)]
-            if context.selfDrawn && context.lastTileOfItsKind {
+            if context.selfDrawn && context.firstTurnWin {
                 fans.insert(FanEntry(fan: context.seatWind == .east ? .tenhou : .chiihou), at: 0)
             }
-            results.append(ScoringResult(fans: fans, flowerFan: 0, fu: 30))
+            results.append(ScoringResult(fans: fans, doraFan: 0, fu: 30))
         }
 
         // 2. 七对子（7 个不同的对子，固定 25 符）
@@ -340,7 +374,7 @@ public enum FanCalculator {
     private static func scoreChiitoitsu(hand: Hand, context: WinContext) -> ScoringResult {
         let allTiles = hand.allTiles
         var yakuman: [FanEntry] = []
-        if context.selfDrawn && hand.melds.isEmpty && context.lastTileOfItsKind {
+        if context.selfDrawn && hand.melds.isEmpty && context.firstTurnWin {
             yakuman.append(FanEntry(fan: context.seatWind == .east ? .tenhou : .chiihou))
         }
         // 字一色（大七星）
@@ -348,7 +382,7 @@ public enum FanCalculator {
             yakuman.append(FanEntry(fan: .tsuuiisou))
         }
         if !yakuman.isEmpty {
-            return ScoringResult(fans: yakuman, flowerFan: 0, fu: 25)
+            return ScoringResult(fans: yakuman, doraFan: 0, fu: 25)
         }
 
         var entries: [FanEntry] = []
@@ -357,8 +391,7 @@ public enum FanCalculator {
         appendAllTileYaku(to: &entries, allTiles: allTiles, isMenzen: true, allowKuitan: context.allowKuitan, isStandard: false)
 
         let sorted = entries.sorted { ($0.points, -$0.fan.rawValue) > ($1.points, -$1.fan.rawValue) }
-        let dora = max(0, context.flowerCount)
-        return ScoringResult(fans: sorted, flowerFan: dora, fu: 25)
+        return ScoringResult(fans: sorted, doraFan: context.doraBreakdown(for: hand).total, fu: 25)
     }
 
     // MARK: - 标准形计分（4 面子 + 1 雀头）
@@ -484,7 +517,7 @@ public enum FanCalculator {
         // 先检查役满
         let yakuman = evaluateStandardYakuman(hand: hand, groups: groups, pair: pair, isMenzen: isMenzen, context: context)
         if !yakuman.isEmpty {
-            return ScoringResult(fans: yakuman, flowerFan: 0, fu: fu)
+            return ScoringResult(fans: yakuman, doraFan: 0, fu: fu)
         }
 
         // 普通役种
@@ -577,8 +610,7 @@ public enum FanCalculator {
         }
 
         let sorted = entries.sorted { ($0.points, -$0.fan.rawValue) > ($1.points, -$1.fan.rawValue) }
-        let dora = max(0, context.flowerCount)
-        return ScoringResult(fans: sorted, flowerFan: dora, fu: fu)
+        return ScoringResult(fans: sorted, doraFan: context.doraBreakdown(for: hand).total, fu: fu)
     }
 
     private static func evaluateStandardYakuman(
@@ -589,7 +621,7 @@ public enum FanCalculator {
         context: WinContext
     ) -> [FanEntry] {
         var yakuman: [FanEntry] = []
-        if context.selfDrawn && hand.melds.isEmpty && context.lastTileOfItsKind {
+        if context.selfDrawn && hand.melds.isEmpty && context.firstTurnWin {
             yakuman.append(FanEntry(fan: context.seatWind == .east ? .tenhou : .chiihou))
         }
         let allTiles = hand.allTiles

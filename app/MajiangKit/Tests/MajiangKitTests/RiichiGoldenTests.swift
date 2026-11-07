@@ -40,6 +40,8 @@ final class RiichiGoldenTests: XCTestCase {
         var kuitan: Bool?
         var kiriage: Bool?
         var honba: Int?
+        var indicators: [String]?
+        var ura: [String]?
     }
 
     struct Table: Decodable {
@@ -69,10 +71,10 @@ final class RiichiGoldenTests: XCTestCase {
         let tiles = Tile.parseList(parts[1])
         let first = try XCTUnwrap(tiles.first, text)
         switch parts[0] {
-        case "chi": return try XCTUnwrap(Meld.chow(first), text)
-        case "pon": return .pung(first)
-        case "kan": return .kong(first, concealed: false)
-        case "ankan": return .kong(first, concealed: true)
+        case "chi": return try XCTUnwrap(Meld.from(tiles: tiles), text)
+        case "pon": return tiles.count == 3 ? try XCTUnwrap(Meld.from(tiles: tiles), text) : .pung(first)
+        case "kan": return try XCTUnwrap(Meld.from(tiles: tiles), text)
+        case "ankan": return try XCTUnwrap(Meld.from(tiles: tiles, concealedKong: true), text)
         default: throw XCTSkip("unknown meld \(text)")
         }
     }
@@ -99,10 +101,12 @@ final class RiichiGoldenTests: XCTestCase {
             doubleRiichi: ctx.doubleRiichi ?? false,
             ippatsu: ctx.ippatsu ?? false,
             lastTileOfWall: ctx.wall ?? false,
-            lastTileOfItsKind: ctx.firstTurn ?? false,
+            firstTurnWin: ctx.firstTurn ?? false,
             kongInvolved: ctx.kong ?? false,
-            flowerCount: ctx.dora ?? 0,
-            allowKuitan: ctx.kuitan ?? true
+            doraCount: ctx.dora ?? 0,
+            allowKuitan: ctx.kuitan ?? true,
+            doraIndicators: (ctx.indicators ?? []).flatMap(Tile.parseList),
+            uraIndicators: (ctx.ura ?? []).flatMap(Tile.parseList)
         )
         let winTile = try XCTUnwrap(Tile(notation: golden.win), id)
         let hand = Hand(melds: try (golden.melds ?? []).map(meld), concealed: Tile.parseList(golden.tiles), winningTile: winTile)
@@ -124,7 +128,7 @@ final class RiichiGoldenTests: XCTestCase {
             XCTAssertEqual(actual, Set(yaku), "\(id): yaku")
         }
         if let han = golden.han { XCTAssertEqual(result.totalFan, han, "\(id): han") }
-        if let dora = golden.dora { XCTAssertEqual(result.flowerFan, dora, "\(id): dora") }
+        if let dora = golden.dora { XCTAssertEqual(result.doraFan, dora, "\(id): dora") }
         if let fu = golden.fu { XCTAssertEqual(result.fu, fu, "\(id): fu") }
 
         // Payments go through the same path as the ledger: WinRecord, then rules.paidFan, then winDeltas.

@@ -190,8 +190,8 @@ public enum TileLayout {
     public static func recognition(from detections: [TileDetection], source: String = "端侧") -> Recognition {
         let tiles = detections.filter { $0.tile != nil }
         let hand = handTiles(in: tiles)
-        let flowers = nearbyFlowers(detections.filter { $0.label == .flower }, hand: hand)
-        var recognition = Recognition(concealed: hand.compactMap(\.tile), flowerCount: flowers, source: source)
+        // 立直麻将的牌里没有花牌，检测到也不算。
+        var recognition = Recognition(concealed: hand.compactMap(\.tile), source: source)
         let dropped = tiles.count - hand.count
         if dropped > 0 {
             recognition.notes.append("画面里还有 \(dropped) 张别的牌，没算进去")
@@ -199,14 +199,6 @@ public enum TileLayout {
         return recognition
     }
 
-    /// 花牌一般摆在手牌前后，大小和手牌差不多的才算。
-    static func nearbyFlowers(_ flowers: [TileDetection], hand: [TileDetection]) -> Int {
-        guard !hand.isEmpty else { return 0 }
-        let tileHeight = median(hand.map(\.box.height))
-        let top = hand.map(\.box.minY).min()! - 3 * tileHeight
-        let bottom = hand.map(\.box.maxY).max()! + 3 * tileHeight
-        return flowers.filter { (0.6...1.6).contains($0.box.height / tileHeight) && (top...bottom).contains($0.box.midY) }.count
-    }
 
     /// 留下手牌，按阅读顺序排好（只给牌，不含花牌）。
     public static func handTiles(in detections: [TileDetection]) -> [TileDetection] {

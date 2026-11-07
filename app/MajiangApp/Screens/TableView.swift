@@ -8,6 +8,8 @@ struct TableView: View {
 
     @State private var recording = false
     @State private var drawingHand = false
+    @State private var specialDraw = false
+    @State private var secondRon = false
     @State private var manualScoring = false
     @State private var showGuide = false
     @State private var editingRules = false
@@ -41,7 +43,7 @@ struct TableView: View {
     private func content(_ game: Game) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // 家规跟国标不一样时才露一行，点开能改
+                // 桌规跟标准不一样时才露一行，点开能改
                 if let badge = game.rules.houseRuleBadge {
                     Button { editingRules = true } label: {
                         Text(badge + " ›")
@@ -139,6 +141,10 @@ struct TableView: View {
                 Menu {
                     if !game.isFinished {
                         Button("有人和错了") { pickingFalseWin = true }
+                        Button(tr("特殊流局", "特殊な流局", "Special Draw")) { specialDraw = true }
+                    }
+                    if case .win(let last)? = game.records.last?.outcome, last.discarder != nil {
+                        Button(tr("还有一家也和了（双响）", "もう一人もロン（ダブロン）", "Another Ron (Double Ron)")) { secondRon = true }
                     }
                     Button("直接改分") { manualScoring = true }
                     Button("这场的规则") { editingRules = true }
@@ -186,6 +192,20 @@ struct TableView: View {
                 case .falseWin(let offender): record { try $0.recordFalseWin(offender: offender) }
                 default: break
                 }
+            }
+        }
+        .fullScreenCover(isPresented: $secondRon) {
+            if case .win(let last)? = game.records.last?.outcome {
+                RoundFlowView(game: game.beforeLastRecord, presetDiscarder: last.discarder) { outcome, _ in
+                    if case .win(let win) = outcome { edit { try $0.addSecondRon(win) } }
+                }
+            }
+        }
+        .sheet(isPresented: $specialDraw) {
+            SpecialDrawSheet(game: game) { kind, riichi in
+                record { try $0.recordAbortiveDraw(kind, riichi: riichi) }
+            } onNagashi: { players, tenpai, riichi in
+                record { try $0.recordNagashi(players: players, tenpai: tenpai, riichi: riichi) }
             }
         }
         .sheet(isPresented: $drawingHand) {

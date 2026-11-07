@@ -56,7 +56,7 @@ struct EditHandSheet: View {
             _tenpai = State(initialValue: tenpai.union(riichi))
             _riichi = State(initialValue: riichi)
             _offender = State(initialValue: 0)
-        case .manual:
+        case .manual, .doubleRon, .nagashi, .abortive:
             _kind = State(initialValue: .manual)
             _winner = State(initialValue: 0)
             _selfDrawn = State(initialValue: true)
@@ -73,7 +73,11 @@ struct EditHandSheet: View {
 
     private var kinds: [(Kind, String)] {
         var options: [(Kind, String)] = [(.win, "和了"), (.drawn, "没人和"), (.falseWin, "和错了")]
-        if case .manual = record.outcome { options.append((.manual, "直接改分")) }
+        switch record.outcome {
+        case .manual: options.append((.manual, "直接改分"))
+        case .doubleRon, .nagashi, .abortive: options.append((.manual, tr("保持原样", "そのまま", "Keep as is")))
+        default: break
+        }
         return options
     }
 
@@ -84,7 +88,7 @@ struct EditHandSheet: View {
             if !selfDrawn && discarder == nil { return nil }
             // 原来不是和牌的话没有牌，只能直接给番数，先按起和番算
             var win = originalWin ?? WinRecord(winner: winner, discarder: nil, hand: nil, context: WinContext(),
-                                               fans: [], flowerFan: 0, fanOverride: game.rules.minimumFan)
+                                               fans: [], doraFan: 0, fanOverride: game.rules.minimumFan)
             win.winner = winner
             win.discarder = selfDrawn ? nil : discarder
             if let fanEdit {
@@ -122,12 +126,12 @@ struct EditHandSheet: View {
         if let fanEdit { return fanEdit }
         if case .win(let win)? = previewRecord?.outcome { return win.totalFan }
         // 按牌重算以后不够起和：错误里带着不含花的番数
-        if case .failure(.belowMinimumFan(let fan))? = preview { return fan + flowerFan }
+        if case .failure(.belowMinimumFan(let fan))? = preview { return fan + doraFan }
         return originalWin?.totalFan ?? game.rules.minimumFan
     }
 
-    private var flowerFan: Int { originalWin?.flowerFan ?? 0 }
-    private var minimumFan: Int { game.rules.minimumFan + flowerFan }
+    private var doraFan: Int { originalWin?.doraFan ?? 0 }
+    private var minimumFan: Int { game.rules.minimumFan + doraFan }
 
     private var blockedReason: String? {
         if kind == .win && !selfDrawn && discarder == nil {
@@ -147,7 +151,7 @@ struct EditHandSheet: View {
                     case .win: winSection
                     case .drawn: drawnSection
                     case .falseWin: falseWinSection
-                    case .manual: note("直接改的分不能在这里改。要重填就删掉这一局，再从右上角「直接改分」记一条。")
+                    case .manual: note(tr("这一局不能在这里改。要重填就删掉，再记一次。", "この局はここでは変更できません。削除して記録し直してください。", "This hand can't be edited here. Delete it and record it again."))
                     }
 
                     if let previewRecord, previewRecord.deltas != [0, 0, 0, 0] {
@@ -244,7 +248,7 @@ struct EditHandSheet: View {
     }
 
     private var fanNote: String {
-        let flowers = flowerFan > 0 ? tr("含宝牌 \(flowerFan) 翻。", "ドラ \(flowerFan) 翻を含む。", "Includes \(flowerFan) Dora.") : ""
+        let flowers = doraFan > 0 ? tr("含宝牌 \(doraFan) 翻。", "ドラ \(doraFan) 翻を含む。", "Includes \(doraFan) Dora.") : ""
         if fanEdit != nil || originalWin?.fanOverride != nil || originalWin == nil {
             return flowers + tr("翻数是手填的，账本里不再列役种。", "翻数は手入力のため、役一覧は表示されません。", "Han entered manually; yaku breakdown hidden.")
         }

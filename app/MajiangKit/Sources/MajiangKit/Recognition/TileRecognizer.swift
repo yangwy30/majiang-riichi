@@ -26,21 +26,21 @@ public struct Recognition: Hashable, Codable, Sendable {
     public var concealed: [RecognizedTile]
     /// 摆在旁边的吃、碰、杠。
     public var melds: [Meld]
-    public var flowerCount: Int
+    public var doraCount: Int
     /// 哪一路识别出来的，例如「Gemini」「端侧」「双读」。
     public var source: String
     /// 识别过程中的说明，例如「有一张牌没认出来」，显示在确认页。
     public var notes: [String] = []
 
-    public init(concealed: [RecognizedTile], melds: [Meld] = [], flowerCount: Int = 0, source: String) {
+    public init(concealed: [RecognizedTile], melds: [Meld] = [], doraCount: Int = 0, source: String) {
         self.concealed = concealed
         self.melds = melds
-        self.flowerCount = flowerCount
+        self.doraCount = doraCount
         self.source = source
     }
 
-    public init(concealed tiles: [Tile], melds: [Meld] = [], flowerCount: Int = 0, source: String) {
-        self.init(concealed: tiles.map { RecognizedTile(tile: $0) }, melds: melds, flowerCount: flowerCount, source: source)
+    public init(concealed tiles: [Tile], melds: [Meld] = [], doraCount: Int = 0, source: String) {
+        self.init(concealed: tiles.map { RecognizedTile(tile: $0) }, melds: melds, doraCount: doraCount, source: source)
     }
 
     /// 按当前读法组成的手牌，和张取最右一张。
@@ -159,7 +159,7 @@ public struct MockRecognizer: TileRecognizer {
         let melded = Recognition(
             concealed: Tile.parseList("123m 567m 中中"),
             melds: [.pung(Tile(.honors, 1)), .kong(Tile(.characters, 9), concealed: true)],
-            flowerCount: 2, source: "演示")
+            doraCount: 2, source: "演示")
 
         let misread = Recognition(concealed: Tile.parseList("234m 456p 567s 234s 5m 6m"), source: "演示")
         return [flush, melded, misread]
