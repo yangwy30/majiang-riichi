@@ -4,8 +4,7 @@ import MajiangKit
 extension HandRecord {
     /// 和牌的那一局才有。
     var win: WinRecord? {
-        if case .win(let win) = outcome { return win }
-        return nil
+        outcome.wins.first
     }
 
     var isWin: Bool { win != nil }
@@ -14,6 +13,7 @@ extension HandRecord {
     func title(in game: Game) -> String {
         let name = { (i: Int) in game.players[i].name }
         let sep = tr(" · ", "・", " · ")
+        if let special = specialTitle(in: game) { return special }
         switch outcome {
         case .win(let win):
             var parts = [
@@ -43,6 +43,8 @@ extension HandRecord {
             return note.isEmpty
                 ? tr("直接改分", "スコア直接修正", "Manual adjustment")
                 : tr("直接改分 · \(note)", "直接修正・\(note)", "Manual · \(note)")
+        default:
+            return ""
         }
     }
 
@@ -82,7 +84,9 @@ extension HandRecord {
             return deltas[win.winner]
         case .falseWin(let offender):
             return deltas[offender]
-        case .drawn:
+        case .doubleRon(let wins):
+            return wins.first.map { deltas[$0.winner] }
+        case .drawn, .nagashi, .abortive:
             let top = deltas.max() ?? 0
             return top > 0 ? top : nil
         case .manual:

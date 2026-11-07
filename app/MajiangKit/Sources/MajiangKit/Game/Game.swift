@@ -511,7 +511,8 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
 
     /// 当前局某个玩家和牌时的 WinContext（场风、自风、喰断已经填好）。
     public func winContext(for winner: Int) -> WinContext {
-        WinContext(prevalentWind: prevalentWind, seatWind: seatWind(of: winner), allowKuitan: rules.allowKuitan)
+        WinContext(prevalentWind: prevalentWind, seatWind: seatWind(of: winner), allowKuitan: rules.allowKuitan,
+                   countsDora: rules.includeFlowers)
     }
 
     // MARK: 分数
@@ -598,6 +599,13 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         let state = currentProgression
         return append(outcome, inHand: state.hand, honba: state.honba, pot: state.pot,
                       deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba, pot: state.pot))
+    }
+
+    /// 去掉最后一条记录的样子。记双响的第二家时，要按那一局的场风、自风和本场来算。
+    public var beforeLastRecord: Game {
+        var copy = self
+        copy.undoLast()
+        return copy
     }
 
     /// 把刚记下的荣和改成双响：`second` 是同一张牌上另一家的荣和。三家都和按途中流局记。
@@ -715,6 +723,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         context.seatWind = seatWind(of: win.winner, inHand: hand)
         context.selfDrawn = win.isSelfDrawn
         context.allowKuitan = rules.allowKuitan
+        context.countsDora = rules.includeFlowers
         if context.selfDrawn != win.context.selfDrawn {
             context.kongInvolved = false
             context.lastTileOfWall = false

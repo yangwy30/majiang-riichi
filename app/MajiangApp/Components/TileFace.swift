@@ -38,6 +38,11 @@ struct TileFace: View {
                     .padding(-4.5)
             }
         }
+        .overlay(alignment: .topLeading) {
+            if tile.isRed {
+                Circle().fill(Theme.vermilion).frame(width: width * 0.16, height: width * 0.16).padding(width * 0.08)
+            }
+        }
         .overlay(alignment: .topTrailing) {
             if state == .doubt {
                 Text("?")

@@ -254,12 +254,12 @@ private struct RulePicker: View {
 
 enum RuleItem: String, Identifiable, CaseIterable {
     case rate, rounds, minimum, flowers, base
-    case uma, kuitan, cap, penalty, swap
+    case uma, oka, kuitan, cap, penalty, swap
 
     var id: String { rawValue }
 
     static let main: [RuleItem] = [.rate, .rounds, .minimum, .flowers, .base]
-    static let more: [RuleItem] = [.uma, .kuitan, .cap, .penalty, .swap]
+    static let more: [RuleItem] = [.uma, .oka, .kuitan, .cap, .penalty, .swap]
 
     var title: String {
         switch self {
@@ -267,6 +267,7 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .rounds: return tr("局制", "対局形式", "Game Length")
         case .minimum: return tr("起和", "翻縛り", "Min Yaku Han")
         case .flowers: return tr("宝牌", "ドラ", "Dora")
+        case .oka: return tr("头名赏（オカ）", "オカ", "Oka")
         case .base: return tr("切上满贯", "切り上げ満貫", "Kiriage Mangan")
         case .uma: return tr("顺位马（ウマ）", "順位戦ウマ", "Placement Uma")
         case .kuitan: return tr("副露断幺九（喰断）", "喰いタン", "Open Tanyao (Kuitan)")
@@ -283,7 +284,7 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .minimum: return tr("至少几翻役才能和（宝牌不算）", "和了に必要な役の翻数（ドラ除く）", "Minimum yaku han required to win (excl. Dora)")
         case .flowers: return tr("表宝、赤宝、里宝每张 1 翻", "表ドラ・赤ドラ・裏ドラ各1翻", "Dora, Red 5 & Ura-dora add +1 han each")
         case .base: return tr("30 符 4 翻、60 符 3 翻按满贯算", "30符4翻・60符3翻を満貫とする", "Round 30 fu 4 han & 60 fu 3 han up to Mangan")
-        case .uma, .kuitan, .cap, .penalty, .swap: return ""
+        case .uma, .oka, .kuitan, .cap, .penalty, .swap: return ""
         }
     }
 
@@ -304,6 +305,9 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .base: return tr("标准规则下 30 符 4 翻和 60 符 3 翻是 7700 / 11600 点；开启切上满贯后直接按满贯 8000 / 12000 点算。",
                               "通常30符4翻・60符3翻は7700/11600点ですが、切り上げ満貫をオンにすると8000/12000点になります。",
                               "Normally 30 fu 4 han and 60 fu 3 han pay 7,700 / 11,600 pts; Kiriage Mangan rounds them up to 8,000 / 12,000.")
+        case .oka: return tr("25000 点起、30000 点返，四家差的共 20000 点归第一名。",
+                             "25000点持ち30000点返し。差額の計20000点は1位に入ります。",
+                             "Start 25,000, return 30,000. The 20,000 difference goes to first place.")
         case .uma: return tr("终局结算时按 1–4 名加减顺位奖惩点（如 10-20 即一位 +20000、二位 +10000、三位 −10000、四位 −20000）。",
                              "終局時に1〜4位の順位に応じて加減算される点数です（10-20なら1位+20000・2位+10000・3位−10000・4位−20000）。",
                              "Placement bonus/penalty applied at final settlement (e.g. 10-20 gives +20k / +10k / −10k / −20k).")
@@ -329,6 +333,7 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .flowers: return rules.includeFlowers == standard.includeFlowers
         case .base: return rules.kiriageMangan == standard.kiriageMangan
         case .uma: return rules.uma == standard.uma
+        case .oka: return rules.oka == standard.oka
         case .kuitan: return rules.allowKuitan == standard.allowKuitan
         case .cap: return rules.fanCap == standard.fanCap
         case .penalty: return rules.falseWinPenalty == standard.falseWinPenalty
@@ -346,6 +351,7 @@ enum RuleItem: String, Identifiable, CaseIterable {
         case .minimum: return ("\(rules.minimumFan)", tr("翻", "翻", "han"), true)
         case .flowers: return (rules.includeFlowers ? tr("计宝牌", "あり", "On") : tr("不计", "なし", "Off"), "", false)
         case .base: return (rules.kiriageMangan ? tr("开启", "あり", "On") : tr("不切上", "なし", "Off"), "", false)
+        case .oka: return (rules.oka ? tr("有", "あり", "On") : tr("不设", "なし", "None"), "", false)
         case .uma:
             if rules.uma == 0 { return (tr("不设", "なし", "None"), "", false) }
             let second = rules.uma == 10 ? 5 : 10
@@ -377,6 +383,11 @@ enum RuleItem: String, Identifiable, CaseIterable {
             return [false, true].map {
                 RuleOption.choice(\.kiriageMangan, $0, $0 ? "切上满贯（按 8000 / 12000 算）" : "按实算（7700 / 11600 点）")
             }
+        case .oka:
+            return [
+                (true, tr("有（第一名 +20000）", "あり（1位 +20000）", "On (+20,000 to first)")),
+                (false, tr("不设", "なし", "None")),
+            ].map { RuleOption.choice(\.oka, $0.0, $0.1) }
         case .uma:
             return [
                 (0, tr("不设（只按素点结算）", "なし（素点のみ）", "None (Raw points only)")),

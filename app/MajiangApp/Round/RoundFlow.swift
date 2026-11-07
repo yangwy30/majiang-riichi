@@ -45,7 +45,12 @@ final class RoundFlow {
     /// 这手牌用户动手改过几次（换、加、删、确认拿不准的）。离线认牌改得多时，核对页提一句邀请码。
     var corrections = 0
     var specials: Set<SpecialWin> = []
+    /// 手动增减的宝牌差额，加在自动数出来的张数上。
     var flowerCount = 0
+    /// 翻出来的宝牌指示牌，含杠宝牌。
+    var doraIndicators: [Tile] = []
+    /// 翻出来的里宝牌指示牌，只有立直和牌才算。
+    var uraIndicators: [Tile] = []
     /// 除和牌者外，本局也宣告立直并投出 1000 点立直棒的玩家。
     var riichiPlayers: Set<Int> = []
     var showResult = false
@@ -56,9 +61,10 @@ final class RoundFlow {
     @ObservationIgnored private var previewFlowerCount: Int?
     @ObservationIgnored private var suggestionCache: (hand: Hand, context: WinContext, value: [FixSuggestion])?
 
-    init(game: Game) {
+    init(game: Game, presetDiscarder: Int? = nil) {
         self.game = game
         self.winner = game.dealer
+        if let presetDiscarder { pickDiscarder(presetDiscarder) }
     }
 
     // MARK: 手牌
@@ -72,7 +78,9 @@ final class RoundFlow {
     var context: WinContext {
         var context = game.winContext(for: winner)
         context.selfDrawn = selfDrawn
-        context.flowerCount = game.rules.includeFlowers ? flowerCount : 0
+        context.flowerCount = flowerCount
+        context.doraIndicators = doraIndicators
+        context.uraIndicators = uraIndicators
         SpecialWin.apply(specials.filter { isAvailable($0) }, to: &context)
         return context
     }
@@ -83,6 +91,38 @@ final class RoundFlow {
     var isValidWin: Bool {
         if case .success(let result) = scoring { return result.meetsMinimum(game.rules.minimumFan) }
         return false
+    }
+
+    // MARK: 宝牌
+
+    var doraTotal: Int { context.doraBreakdown(for: hand).total }
+
+    /// 核对页的加减号改的是总数，自动数的张数不动，差额记在 `flowerCount`。
+    func stepDora(by delta: Int) {
+        guard doraTotal + delta >= 0 else { return }
+        flowerCount += delta
+    }
+
+    /// 这手牌里有 5 的花色，只有这些能标赤五。
+    var redFiveSuits: [Suit] {
+        [Suit.characters, .dots, .bamboo].filter { suit in hand.allTiles.contains { $0.suit == suit && $0.rank == 5 } }
+    }
+
+    func hasRedFive(_ suit: Suit) -> Bool {
+        hand.allTiles.contains { $0.suit == suit && $0.isRed }
+    }
+
+    /// 打开时把这种花色的第一张 5 标成赤五；关掉时全部还原。
+    func setRedFive(_ suit: Suit, on: Bool) {
+        var pending = on
+        for i in tiles.indices where tiles[i].tile.suit == suit && tiles[i].tile.rank == 5 {
+            tiles[i].tile = tiles[i].tile.marked(red: pending)
+            pending = false
+        }
+        for i in melds.indices where melds[i].tiles.contains(where: { $0.suit == suit && $0.rank == 5 }) {
+            melds[i].redCount = pending ? 1 : 0
+            pending = false
+        }
     }
 
     // MARK: 谁和了、怎么和的

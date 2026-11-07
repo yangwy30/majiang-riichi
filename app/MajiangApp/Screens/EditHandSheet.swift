@@ -56,7 +56,7 @@ struct EditHandSheet: View {
             _tenpai = State(initialValue: tenpai.union(riichi))
             _riichi = State(initialValue: riichi)
             _offender = State(initialValue: 0)
-        case .manual:
+        case .manual, .doubleRon, .nagashi, .abortive:
             _kind = State(initialValue: .manual)
             _winner = State(initialValue: 0)
             _selfDrawn = State(initialValue: true)
@@ -73,7 +73,11 @@ struct EditHandSheet: View {
 
     private var kinds: [(Kind, String)] {
         var options: [(Kind, String)] = [(.win, "和了"), (.drawn, "没人和"), (.falseWin, "和错了")]
-        if case .manual = record.outcome { options.append((.manual, "直接改分")) }
+        switch record.outcome {
+        case .manual: options.append((.manual, "直接改分"))
+        case .doubleRon, .nagashi, .abortive: options.append((.manual, tr("保持原样", "そのまま", "Keep as is")))
+        default: break
+        }
         return options
     }
 
@@ -147,7 +151,7 @@ struct EditHandSheet: View {
                     case .win: winSection
                     case .drawn: drawnSection
                     case .falseWin: falseWinSection
-                    case .manual: note("直接改的分不能在这里改。要重填就删掉这一局，再从右上角「直接改分」记一条。")
+                    case .manual: note(tr("这一局不能在这里改。要重填就删掉，再记一次。", "この局はここでは変更できません。削除して記録し直してください。", "This hand can't be edited here. Delete it and record it again."))
                     }
 
                     if let previewRecord, previewRecord.deltas != [0, 0, 0, 0] {
