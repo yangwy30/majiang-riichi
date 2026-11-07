@@ -23,7 +23,7 @@ struct CompassBoard: View {
     var compact = false
 
     private var side: CGFloat { compact ? 100 : 118 }
-    private var height: CGFloat { compact ? 262 : 312 }
+    private var height: CGFloat { compact ? 284 : 312 }
 
     var body: some View {
         ZStack {

@@ -69,7 +69,9 @@ struct TableView: View {
                 Hairline()
 
                 if game.records.isEmpty {
-                    Text(tr("还没有记录。有人和了就点上面的卡片。", "まだ記録がありません。和了が出たら上のカードをタップ。", "No hands yet. Tap the card above when someone wins."))
+                    Text(game.isFinished
+                         ? tr("这场没有记录。", "記録はありません。", "No hands recorded.")
+                         : tr("还没有记录。有人和了就点上面的卡片。", "まだ記録がありません。和了が出たら上のカードをタップ。", "No hands yet. Tap the card above when someone wins."))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .padding(.vertical, 14)

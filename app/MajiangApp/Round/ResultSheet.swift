@@ -14,6 +14,7 @@ struct ResultSheet: View {
                 ContentUnavailableView("这手牌还和不了", systemImage: "exclamationmark.circle")
             }
         }
+        .foregroundStyle(Theme.ink)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(16)
