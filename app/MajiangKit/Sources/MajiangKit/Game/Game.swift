@@ -63,7 +63,10 @@ public struct GameRules: Hashable, Codable, Sendable {
 
     /// 一把和牌按几翻计分：不计宝牌时去掉宝牌翻数，再按封顶算。
     public func paidFan(_ win: WinRecord) -> Int {
-        cappedFan(includeFlowers ? win.totalFan : win.totalFan - win.flowerFan)
+        let fan = cappedFan(includeFlowers ? win.totalFan : win.totalFan - win.flowerFan)
+        // 累计役满最多算一倍；手动改翻时 `fans` 不可信，保留手填的翻数。
+        guard win.fanOverride == nil, !win.fans.contains(where: { $0.fan.isYakuman }) else { return fan }
+        return min(fan, 13)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -653,8 +656,7 @@ public enum Payment {
     /// 基本点（$B = \text{符} \times 2^{\text{翻}+2}$，满贯封顶 2000，6 翻起跳满/倍满/三倍满/役满）。
     public static func basePoints(han: Int, fu: Int = 30, kiriageMangan: Bool = false) -> Int {
         guard han > 0 else { return 0 }
-        if han >= 26 { return 16000 }
-        if han >= 13 { return 8000 }
+        if han >= 13 { return 8000 * (han / 13) }
         if han >= 11 { return 6000 }
         if han >= 8 { return 4000 }
         if han >= 6 { return 3000 }
@@ -669,6 +671,7 @@ public enum Payment {
 
     /// 满贯及以上的段位名称（未达满贯返回 nil）。
     public static func limitName(han: Int, fu: Int = 30, kiriageMangan: Bool = false) -> String? {
+        if han >= 39 { return tr("三倍役满", "トリプル役満", "Triple Yakuman") }
         if han >= 26 { return tr("双倍役满", "ダブル役満", "Double Yakuman") }
         if han >= 13 { return tr("役满", "役満", "Yakuman") }
         if han >= 11 { return tr("三倍满", "三倍満", "Sanbaiman") }
