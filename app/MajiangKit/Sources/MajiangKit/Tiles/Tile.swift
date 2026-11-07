@@ -1,6 +1,6 @@
 import Foundation
 
-/// 花色。raw value 与算番库的编码一致（高 4 位）。
+/// 花色。
 public enum Suit: Int, Codable, CaseIterable, Sendable {
     case characters = 1  // 万
     case bamboo = 2      // 条
@@ -17,7 +17,7 @@ public enum Suit: Int, Codable, CaseIterable, Sendable {
         }
     }
 
-    public var chineseName: String {
+    public var shortName: String {
         switch self {
         case .characters: tr("万", "萬", "m")
         case .bamboo: tr("条", "索", "s")
@@ -27,7 +27,7 @@ public enum Suit: Int, Codable, CaseIterable, Sendable {
     }
 }
 
-/// 一张牌（不含花牌，花牌只计数量）。
+/// 一张牌。
 public struct Tile: Hashable, Comparable, Sendable {
     public let suit: Suit
     /// 数牌 1–9；字牌 1 东 2 南 3 西 4 北 5 中 6 发 7 白。
@@ -85,16 +85,6 @@ public struct Tile: Hashable, Comparable, Sendable {
     /// 同花色的下一张数牌（9 之后没有）。
     public var next: Tile? { isNumbered ? Tile(suit: suit, rank: rank + 1) : nil }
 
-    // MARK: 编码
-
-    /// 算番库的牌编码：高 4 位花色，低 4 位点数。
-    public var code: UInt8 { UInt8(suit.rawValue << 4 | rank) }
-
-    public init?(code: UInt8) {
-        guard let suit = Suit(rawValue: Int(code >> 4)) else { return nil }
-        self.init(suit: suit, rank: Int(code & 0xF))
-    }
-
     // MARK: 文字
 
     static let honorNames = ["东", "南", "西", "北", "中", "发", "白"]
@@ -117,7 +107,7 @@ public struct Tile: Hashable, Comparable, Sendable {
             case .en: return Tile.honorNamesEN[rank - 1]
             }
         }
-        return "\(isRed ? tr("赤", "赤", "Red ") : "")\(rank)\(suit.chineseName)"
+        return "\(isRed ? tr("赤", "赤", "Red ") : "")\(rank)\(suit.shortName)"
     }
 
     /// 牌面上的大字：万子写「五」，字牌写「中」，饼条不用。
@@ -251,7 +241,7 @@ extension Array where Element == Tile {
         var runSuit: Suit?
         func flush() {
             if let suit = runSuit, !run.isEmpty {
-                groups.append(run.map(String.init).joined() + suit.chineseName)
+                groups.append(run.map(String.init).joined() + suit.shortName)
             }
             run.removeAll()
         }

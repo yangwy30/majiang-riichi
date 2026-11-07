@@ -241,7 +241,7 @@ extension GameRules {
             let second = uma == 10 ? 5 : 10
             parts.append(tr("顺位马 \(second)-\(uma)", "ウマ\(second)-\(uma)", "Uma \(second)-\(uma)"))
         }
-        if !includeFlowers {
+        if !includeDora {
             parts.append(tr("不计宝牌", "ドラなし", "No Dora"))
         }
         if falseWinPenalty != standard.falseWinPenalty {

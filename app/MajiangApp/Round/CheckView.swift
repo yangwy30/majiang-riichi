@@ -382,13 +382,13 @@ struct CheckView: View {
         var reason: Text
         switch flow.scoring {
         case .success(let result):
-            title = result.fanWithoutFlowers == 0
+            title = result.fanWithoutDora == 0
                 ? tr("无役，立直麻将至少要有 \(minimum) 翻役才能和",
                      "役なし（和了には最低 \(minimum) 翻の役が必要です）",
                      "No Yaku (at least \(minimum) han of yaku required)")
-                : tr("只有 \(result.fanWithoutFlowers) 翻役，本场要 \(minimum) 翻才能和",
-                     "役が \(result.fanWithoutFlowers) 翻のみ（この対局は \(minimum) 翻縛り）",
-                     "Only \(result.fanWithoutFlowers) han of yaku (\(minimum)-han minimum)")
+                : tr("只有 \(result.fanWithoutDora) 翻役，本场要 \(minimum) 翻才能和",
+                     "役が \(result.fanWithoutDora) 翻のみ（この対局は \(minimum) 翻縛り）",
+                     "Only \(result.fanWithoutDora) han of yaku (\(minimum)-han minimum)")
             reason = Text("牌型没问题。如果这手立直了，在下面点一下「立直」；宝牌每张加 1 翻，但不算进起和役。")
         case .failure(.wrongTileCount):
             reason = Text("和牌一共 14 张（每个杠多 1 张），现在是 \(flow.hand.allTiles.count) 张。")
@@ -515,8 +515,8 @@ struct CheckView: View {
                 riichiRow
                 Hairline(color: Theme.lineSoft)
             }
-            if game.rules.includeFlowers {
-                flowers
+            if game.rules.includeDora {
+                dora
                 Hairline(color: Theme.lineSoft)
             }
             rareSection
@@ -708,7 +708,7 @@ struct CheckView: View {
         }
     }
 
-    private var flowers: some View {
+    private var dora: some View {
         let isRiichi = flow.specials.contains(.riichi) || flow.specials.contains(.doubleRiichi)
         return HStack {
             VStack(alignment: .leading, spacing: 2) {

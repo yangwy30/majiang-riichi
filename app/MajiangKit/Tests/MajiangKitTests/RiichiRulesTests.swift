@@ -16,7 +16,7 @@ final class RiichiRulesTests: XCTestCase {
         var context = WinContext()
         context.riichi = riichi
         return WinRecord(winner: winner, discarder: discarder, hand: nil, context: context,
-                         fans: [FanEntry(fan: .tanyao, count: 1, han: han)], flowerFan: 0, fu: 30, riichiPlayers: others)
+                         fans: [FanEntry(fan: .tanyao, count: 1, han: han)], doraFan: 0, fu: 30, riichiPlayers: others)
     }
 
     // MARK: 双响
@@ -220,5 +220,63 @@ final class RiichiRulesTests: XCTestCase {
         XCTAssertTrue(rules.oka)
         XCTAssertTrue(rules.tobi)
         XCTAssertEqual(rules.startingPoints, 25000)
+    }
+}
+
+/// 改名以后，开发版存档里的旧字段名还能读。
+final class LegacyDecodingTests: XCTestCase {
+    func testOldFieldNamesStillDecode() throws {
+        let context = try JSONDecoder().decode(WinContext.self, from: Data(#"{"flowerCount":2,"lastTileOfItsKind":true}"#.utf8))
+        XCTAssertEqual(context.doraCount, 2)
+        XCTAssertTrue(context.firstTurnWin)
+
+        let rules = try JSONDecoder().decode(GameRules.self, from: Data(#"{"includeFlowers":false}"#.utf8))
+        XCTAssertFalse(rules.includeDora)
+
+        let win = try JSONDecoder().decode(WinRecord.self, from: Data(#"{"winner":1,"context":{},"fans":[],"flowerFan":3}"#.utf8))
+        XCTAssertEqual(win.doraFan, 3)
+    }
+}
+
+final class RedFiveTests: XCTestCase {
+    func testRedFiveNotationRoundTrips() throws {
+        let tiles = Tile.parseList("340m 0p 0s 5m")
+        XCTAssertEqual(tiles.map(\.isRed), [false, false, true, true, true, false])
+        XCTAssertEqual(tiles[2], Tile(.characters, 5), "赤五和普通的 5 是同一种牌")
+        XCTAssertEqual(tiles[2].notation, "0m")
+        let data = try JSONEncoder().encode(tiles)
+        XCTAssertEqual(try JSONDecoder().decode([Tile].self, from: data).map(\.isRed), tiles.map(\.isRed))
+    }
+
+    func testOnlySuitedFivesCanBeRed() {
+        XCTAssertNil(Tile(suit: .characters, rank: 4, isRed: true))
+        XCTAssertNil(Tile(suit: .honors, rank: 5, isRed: true))
+        XCTAssertTrue(Tile.parseList("0z").isEmpty)
+    }
+
+    func testMeldKeepsRedThroughEncoding() throws {
+        let meld = try XCTUnwrap(Meld.from(tiles: Tile.parseList("340p")))
+        XCTAssertEqual(meld.redCount, 1)
+        XCTAssertEqual(meld.tiles.filter(\.isRed).count, 1)
+        XCTAssertEqual(try JSONDecoder().decode(Meld.self, from: JSONEncoder().encode(meld)), meld)
+        let old = try JSONDecoder().decode(Meld.self, from: Data(#"{"kind":"pung","tile":"5p","isConcealed":false}"#.utf8))
+        XCTAssertEqual(old.redCount, 0)
+    }
+
+    func testGeminiReadsRedFives() throws {
+        let answer = #"{"concealed":["0m","6m","7m"],"melds":[{"kind":"kong","tiles":["0p","5p","5p","5p"]}]}"#
+        let recognition = try GeminiRecognizer.parseAnswer(Data(answer.utf8))
+        XCTAssertTrue(recognition.concealed[0].tile.isRed)
+        XCTAssertEqual(recognition.melds.first?.redCount, 1)
+        XCTAssertEqual(recognition.doraCount, 0)
+        XCTAssertTrue(GeminiRecognizer.tileNotations.contains("0m"))
+    }
+
+    func testDualReadKeepsARedFiveFromEitherPass() {
+        let plain = Recognition(concealed: Tile.parseList("5m6m7m"), source: "端侧")
+        let red = Recognition(concealed: Tile.parseList("0m6m7m"), source: "Gemini")
+        XCTAssertTrue(DualReadRecognizer.merge(plain, with: red).concealed[0].tile.isRed)
+        XCTAssertTrue(DualReadRecognizer.merge(red, with: plain).concealed[0].tile.isRed)
+        XCTAssertFalse(DualReadRecognizer.merge(plain, with: red).concealed[0].needsReview, "赤五不用再问一遍")
     }
 }

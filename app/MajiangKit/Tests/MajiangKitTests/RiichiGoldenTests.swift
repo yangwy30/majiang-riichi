@@ -101,9 +101,9 @@ final class RiichiGoldenTests: XCTestCase {
             doubleRiichi: ctx.doubleRiichi ?? false,
             ippatsu: ctx.ippatsu ?? false,
             lastTileOfWall: ctx.wall ?? false,
-            lastTileOfItsKind: ctx.firstTurn ?? false,
+            firstTurnWin: ctx.firstTurn ?? false,
             kongInvolved: ctx.kong ?? false,
-            flowerCount: ctx.dora ?? 0,
+            doraCount: ctx.dora ?? 0,
             allowKuitan: ctx.kuitan ?? true,
             doraIndicators: (ctx.indicators ?? []).flatMap(Tile.parseList),
             uraIndicators: (ctx.ura ?? []).flatMap(Tile.parseList)
@@ -128,7 +128,7 @@ final class RiichiGoldenTests: XCTestCase {
             XCTAssertEqual(actual, Set(yaku), "\(id): yaku")
         }
         if let han = golden.han { XCTAssertEqual(result.totalFan, han, "\(id): han") }
-        if let dora = golden.dora { XCTAssertEqual(result.flowerFan, dora, "\(id): dora") }
+        if let dora = golden.dora { XCTAssertEqual(result.doraFan, dora, "\(id): dora") }
         if let fu = golden.fu { XCTAssertEqual(result.fu, fu, "\(id): fu") }
 
         // Payments go through the same path as the ledger: WinRecord, then rules.paidFan, then winDeltas.

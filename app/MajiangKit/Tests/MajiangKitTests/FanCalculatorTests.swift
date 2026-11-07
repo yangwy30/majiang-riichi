@@ -85,20 +85,20 @@ final class FanCalculatorTests: XCTestCase {
         let hand = Hand(melds: [.chow(Tile(.characters, 1))!],
                         concealed: Tile.parseList("345p 678s 234s 99m"),
                         winningTile: Tile(.characters, 9))
-        let result = try FanCalculator.score(hand, context: WinContext(flowerCount: 5)).get()
-        XCTAssertEqual(result.fanWithoutFlowers, 0)
-        XCTAssertEqual(result.flowerFan, 5)
+        let result = try FanCalculator.score(hand, context: WinContext(doraCount: 5)).get()
+        XCTAssertEqual(result.fanWithoutDora, 0)
+        XCTAssertEqual(result.doraFan, 5)
         XCTAssertFalse(result.meetsMinimum(1))
     }
 
     func testRiichiAndIppatsuAndDora() throws {
         // 立直 + 一发 + 宝牌 2：本来无役的门前荣和牌，立直后可和
         let hand = Hand(concealed: Tile.parseList("123m 345p 678s 234s 99m"), winningTile: Tile(.characters, 9))
-        let context = WinContext(selfDrawn: false, riichi: true, ippatsu: true, flowerCount: 2)
+        let context = WinContext(selfDrawn: false, riichi: true, ippatsu: true, doraCount: 2)
         let result = try FanCalculator.score(hand, context: context).get()
         XCTAssertTrue(result.contains(.riichi))
         XCTAssertTrue(result.contains(.ippatsu))
-        XCTAssertEqual(result.fanWithoutFlowers, 2)
+        XCTAssertEqual(result.fanWithoutDora, 2)
         XCTAssertEqual(result.totalFan, 4)
         XCTAssertEqual(result.fu, 40) // 20 副底 + 10 门前荣和 + 2 单骑 = 32 -> 40 符
         XCTAssertTrue(result.meetsMinimum())
@@ -124,10 +124,10 @@ final class FanCalculatorTests: XCTestCase {
 
     func testKokushiMusouYakuman() throws {
         let hand = Hand(concealed: Tile.parseList("19m 19p 19s 东南西北中发白 1m"), winningTile: Tile(.characters, 1))
-        let result = try FanCalculator.score(hand, context: WinContext(flowerCount: 3)).get()
+        let result = try FanCalculator.score(hand, context: WinContext(doraCount: 3)).get()
         XCTAssertTrue(result.contains(.kokushi))
         XCTAssertTrue(result.isYakuman)
-        XCTAssertEqual(result.flowerFan, 0, "役满不额外加计宝牌")
+        XCTAssertEqual(result.doraFan, 0, "役满不额外加计宝牌")
         XCTAssertEqual(result.totalFan, 13)
     }
 
@@ -154,7 +154,7 @@ final class FanCalculatorTests: XCTestCase {
         let eastResult = try FanCalculator.score(doubleEast, context: WinContext(prevalentWind: .east, seatWind: .east)).get()
         XCTAssertTrue(eastResult.contains(.prevalentWind))
         XCTAssertTrue(eastResult.contains(.seatWind))
-        XCTAssertEqual(eastResult.fanWithoutFlowers, 2)
+        XCTAssertEqual(eastResult.fanWithoutDora, 2)
     }
 
     func testWaitingTiles() {

@@ -26,7 +26,7 @@ struct ShareCard: View {
             } else {
                 recent.padding(.top, 26)
             }
-            Text("拍照算番 · 拍一下，番和钱都算好")
+            Text(tr("日麻算番", "麻雀カメラ計算", "Riichi Scorer"))
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.faint)
                 .padding(.top, 26)

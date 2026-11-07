@@ -1,6 +1,6 @@
 import Foundation
 
-/// 立直麻将役种（含役满）。宝牌（含赤宝牌、里宝牌）不计入起和役，单独记在 `ScoringResult.flowerFan`。
+/// 立直麻将役种（含役满）。宝牌（含赤宝牌、里宝牌）不计入起和役，单独记在 `ScoringResult.doraFan`。
 public enum Fan: Int, CaseIterable, Codable, Sendable {
     // 1 翻
     case riichi = 1
@@ -53,23 +53,6 @@ public enum Fan: Int, CaseIterable, Codable, Sendable {
     case suukantsu
     case tenhou
     case chiihou
-
-    // 兼容别名
-    public static let fullFlush = Fan.chinitsu
-    public static let halfFlush = Fan.honitsu
-    public static let allPungs = Fan.toitoi
-    public static let sevenPairs = Fan.chiitoitsu
-    public static let selfDrawn = Fan.menzenTsumo
-    public static let allSimples = Fan.tanyao
-    public static let pureStraight = Fan.ittsuu
-    public static let mixedTripleChow = Fan.sanshokuDoujun
-    public static let pureDoubleChow = Fan.iipeiko
-    public static let lastTileDraw = Fan.haitei
-    public static let lastTileClaim = Fan.houtei
-    public static let outWithReplacementTile = Fan.rinshan
-    public static let robbingTheKong = Fan.chankan
-    public static let chickenHand = Fan.riichi
-    public static let allTypes = Fan.tanyao
 
     /// 门前清时的标准翻数（役满按 13 翻计）。
     public var points: Int {

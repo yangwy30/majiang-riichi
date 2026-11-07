@@ -14,9 +14,9 @@ final class GameTests: XCTestCase {
             winner: winner,
             discarder: discarder,
             hand: nil,
-            context: WinContext(flowerCount: dora),
+            context: WinContext(doraCount: dora),
             fans: [FanEntry(fan: .riichi, count: 1, han: fan - dora)],
-            flowerFan: dora,
+            doraFan: dora,
             fu: fu
         )
     }
@@ -103,7 +103,7 @@ final class GameTests: XCTestCase {
         try doraGame.recordWin(win(2, discarder: 1, fan: 5, dora: 2, fu: 30)) // 含宝牌 5 翻满贯 8000
         XCTAssertEqual(doraGame.scores[2], 8000)
         var noDora = doraGame.rules
-        noDora.includeFlowers = false
+        noDora.includeDora = false
         try doraGame.changeRules(noDora)
         XCTAssertEqual(doraGame.scores[2], 3900) // 去掉 2 张宝牌变 30 符 3 翻 = 3900
     }
@@ -121,7 +121,7 @@ final class GameTests: XCTestCase {
     }
 
     func testOldRulesWithoutHouseRuleFieldsStillLoad() throws {
-        let json = #"{"yuanPerPoint":1,"minimumFan":1,"includeFlowers":true}"#
+        let json = #"{"yuanPerPoint":1,"minimumFan":1,"includeDora":true}"#
         let rules = try JSONDecoder().decode(GameRules.self, from: Data(json.utf8))
         XCTAssertEqual(rules.fanCap, 0)
         XCTAssertFalse(rules.kiriageMangan)
@@ -238,8 +238,8 @@ final class GameTests: XCTestCase {
         var game = makeGame()
         XCTAssertThrowsError(try game.recordWin(win(0, discarder: 0, fan: 1)))
         // 只有宝牌、没有役（0 翻役 + 3 张宝牌）：无役不能和
-        let noYaku = WinRecord(winner: 0, discarder: 1, hand: nil, context: WinContext(flowerCount: 3),
-                               fans: [], flowerFan: 3)
+        let noYaku = WinRecord(winner: 0, discarder: 1, hand: nil, context: WinContext(doraCount: 3),
+                               fans: [], doraFan: 3)
         XCTAssertThrowsError(try game.recordWin(noYaku)) { error in
             XCTAssertEqual(error as? GameError, .belowMinimumFan(0))
         }
@@ -377,7 +377,7 @@ final class ArchiveAndParsingTests: XCTestCase {
         rules.uma = 20
         rules.oka = false
         var game = Game(players: ["东", "南", "西", "北"].map { Player(name: $0) }, rules: rules)
-        try game.recordWin(WinRecord(winner: 1, discarder: 0, hand: nil, context: WinContext(), fans: [], flowerFan: 0, fu: 30, fanOverride: 4)) // 南赢东 7700
+        try game.recordWin(WinRecord(winner: 1, discarder: 0, hand: nil, context: WinContext(), fans: [], doraFan: 0, fu: 30, fanOverride: 4)) // 南赢东 7700
         try game.recordDraw(tenpai: [2]) // 西 +3000，东/南/北各 -1000
         game.end()
         // 终局前分数：南 +6700(1位)，西 +3000(2位)，北 -1000(3位)，东 -8700(4位)

@@ -113,12 +113,12 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
         context.ippatsu = set.contains(.ippatsu)
         context.lastTileOfWall = set.contains(.lastTileDraw) || set.contains(.lastTileClaim)
         context.kongInvolved = set.contains(.kongReplacement) || set.contains(.robbingTheKong)
-        context.lastTileOfItsKind = set.contains(.blessingOfHeavenOrEarth)
+        context.firstTurnWin = set.contains(.blessingOfHeavenOrEarth)
     }
 
     public static func from(_ context: WinContext) -> Set<SpecialWin> {
         var result: Set<SpecialWin> = []
-        if context.lastTileOfItsKind {
+        if context.firstTurnWin {
             result.insert(.blessingOfHeavenOrEarth)
             return result
         }
@@ -156,12 +156,12 @@ public enum WinAssistant {
         switch FanCalculator.score(hand, context: context) {
         case .success(let result):
             if result.meetsMinimum(minimumFan) { return nil }
-            let doraNote = result.flowerFan > 0 ? tr(
-                "（宝牌 \(result.flowerFan) 翻不算进起和役）",
-                "（ドラ\(result.flowerFan)翻は役に含まれません）",
-                " (\(result.flowerFan) Dora han do not count as yaku)"
+            let doraNote = result.doraFan > 0 ? tr(
+                "（宝牌 \(result.doraFan) 翻不算进起和役）",
+                "（ドラ\(result.doraFan)翻は役に含まれません）",
+                " (\(result.doraFan) Dora han do not count as yaku)"
             ) : ""
-            if result.fanWithoutFlowers == 0 {
+            if result.fanWithoutDora == 0 {
                 return tr(
                     "无役\(doraNote)，立直麻将至少要有 \(minimumFan) 翻役才能和。",
                     "役なし\(doraNote)。和了には\(minimumFan)翻以上の役が必要です。",
@@ -169,9 +169,9 @@ public enum WinAssistant {
                 )
             }
             return tr(
-                "只有 \(result.fanWithoutFlowers) 翻役\(doraNote)，本场要 \(minimumFan) 翻才能和。",
-                "\(result.fanWithoutFlowers)翻のみ\(doraNote)。この卓は\(minimumFan)翻縛りです。",
-                "Only \(result.fanWithoutFlowers) han of yaku\(doraNote); \(minimumFan) han required."
+                "只有 \(result.fanWithoutDora) 翻役\(doraNote)，本场要 \(minimumFan) 翻才能和。",
+                "\(result.fanWithoutDora)翻のみ\(doraNote)。この卓は\(minimumFan)翻縛りです。",
+                "Only \(result.fanWithoutDora) han of yaku\(doraNote); \(minimumFan) han required."
             )
         case .failure(.wrongTileCount):
             let expected = 14 - hand.melds.count * 3

@@ -30,7 +30,7 @@ final class RecognitionTests: XCTestCase {
         let result = try await recognizer.recognize(RecognitionRequest(image: Data([0xFF, 0xD8])))
         XCTAssertEqual(result.concealed.map(\.tile), Tile.parseList("123m55p"))
         XCTAssertEqual(result.melds, [.pung(Tile(.honors, 1)), .kong(Tile(.bamboo, 9), concealed: true), .chow(Tile(.dots, 2))!])
-        XCTAssertEqual(result.flowerCount, 0, "宝牌不再由模型数")
+        XCTAssertEqual(result.doraCount, 0, "宝牌不再由模型数")
 
         let request = try XCTUnwrap(http.requests.first)
         XCTAssertEqual(request.value(forHTTPHeaderField: "x-goog-api-key"), "test-key")
@@ -187,7 +187,7 @@ final class RecognitionTests: XCTestCase {
 
         let resolution = RecognitionResolver.resolve(merged, context: WinContext(selfDrawn: true))
         XCTAssertEqual(resolution.recommended[9], Tile(.dots, 5))
-        XCTAssertTrue(resolution.result?.contains(.fullFlush) ?? false)
+        XCTAssertTrue(resolution.result?.contains(.chinitsu) ?? false)
 
         // 两种读法都能和（5饼、6饼都成和）时不替用户挑
         var both = merged

@@ -46,7 +46,7 @@ final class RoundFlow {
     var corrections = 0
     var specials: Set<SpecialWin> = []
     /// 手动增减的宝牌差额，加在自动数出来的张数上。
-    var flowerCount = 0
+    var doraCount = 0
     /// 翻出来的宝牌指示牌，含杠宝牌。
     var doraIndicators: [Tile] = []
     /// 翻出来的里宝牌指示牌，只有立直和牌才算。
@@ -58,7 +58,7 @@ final class RoundFlow {
     /// 每次识别一个编号；中途重拍了，旧的结果回来时丢掉。
     @ObservationIgnored private var recognitionID = UUID()
     /// 端侧结果里的花牌数；复核期间用户改过花牌就不用 Gemini 的覆盖。
-    @ObservationIgnored private var previewFlowerCount: Int?
+    @ObservationIgnored private var previewDoraCount: Int?
     @ObservationIgnored private var suggestionCache: (hand: Hand, context: WinContext, value: [FixSuggestion])?
 
     init(game: Game, presetDiscarder: Int? = nil) {
@@ -78,7 +78,7 @@ final class RoundFlow {
     var context: WinContext {
         var context = game.winContext(for: winner)
         context.selfDrawn = selfDrawn
-        context.flowerCount = flowerCount
+        context.doraCount = doraCount
         context.doraIndicators = doraIndicators
         context.uraIndicators = uraIndicators
         SpecialWin.apply(specials.filter { isAvailable($0) }, to: &context)
@@ -97,10 +97,10 @@ final class RoundFlow {
 
     var doraTotal: Int { context.doraBreakdown(for: hand).total }
 
-    /// 核对页的加减号改的是总数，自动数的张数不动，差额记在 `flowerCount`。
+    /// 核对页的加减号改的是总数，自动数的张数不动，差额记在 `doraCount`。
     func stepDora(by delta: Int) {
         guard doraTotal + delta >= 0 else { return }
-        flowerCount += delta
+        doraCount += delta
     }
 
     /// 这手牌里有 5 的花色，只有这些能标赤五。
@@ -164,7 +164,7 @@ final class RoundFlow {
         case .failure:
             return tr("先把牌改对", "まず手牌を修正してください", "Fix the hand tiles first")
         case .success(let result) where !result.meetsMinimum(game.rules.minimumFan):
-            return result.fanWithoutFlowers == 0
+            return result.fanWithoutDora == 0
                 ? tr("无役，和不了", "役なし（和了不可）", "No yaku (cannot win)")
                 : tr("不够 \(game.rules.minimumFan) 翻役，和不了", "\(game.rules.minimumFan)翻縛りを満たしていません", "Below \(game.rules.minimumFan)-han minimum")
         case .success:
@@ -241,9 +241,9 @@ final class RoundFlow {
             }
             guard recognitionID == id else { return }
             // 复核期间用户改过花牌数，就以用户的为准
-            let userFlowers = previewFlowerCount.flatMap { $0 != flowerCount ? flowerCount : nil }
+            let userDora = previewDoraCount.flatMap { $0 != doraCount ? doraCount : nil }
             load(recognition)
-            if let userFlowers { flowerCount = userFlowers }
+            if let userDora { doraCount = userDora }
             steps = [.check]
         } catch {
             guard recognitionID == id else { return }
@@ -254,7 +254,7 @@ final class RoundFlow {
     private func showPreview(_ preview: Recognition, id: UUID) {
         guard recognitionID == id else { return }
         load(preview)
-        previewFlowerCount = preview.flowerCount
+        previewDoraCount = preview.doraCount
         isRecognizing = false
         isReviewing = true
         steps = [.check]
@@ -270,11 +270,11 @@ final class RoundFlow {
     func load(_ recognition: Recognition) {
         tiles = recognition.concealed
         melds = recognition.melds
-        flowerCount = recognition.flowerCount
+        doraCount = recognition.doraCount
         source = recognition.source
         notes = recognition.notes
         winningIndex = tiles.indices.last
-        previewFlowerCount = nil
+        previewDoraCount = nil
         corrections = 0
         reviewAtLoad = recognition.reviewCount
         let resolution = RecognitionResolver.resolve(recognition, context: context, minimumFan: game.rules.minimumFan)

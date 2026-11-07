@@ -19,7 +19,7 @@ public struct GameRules: Hashable, Codable, Sendable {
     /// 起和翻数（立直麻将默认 1 翻起和，宝牌不计入）。
     public var minimumFan: Int = 1
     /// 是否计入宝牌（表宝牌、赤宝牌、里宝牌）。
-    public var includeFlowers: Bool = true
+    public var includeDora: Bool = true
     /// 切上满贯：30 符 4 翻、60 符 3 翻按满贯（8000 / 12000 点）算。
     public var kiriageMangan: Bool = false
     /// 每圈换座；朋友局一般不换。
@@ -71,17 +71,20 @@ public struct GameRules: Hashable, Codable, Sendable {
 
     /// 一把和牌按几翻计分：不计宝牌时去掉宝牌翻数，再按封顶算。
     public func paidFan(_ win: WinRecord) -> Int {
-        let fan = cappedFan(includeFlowers ? win.totalFan : win.totalFan - win.flowerFan)
+        let fan = cappedFan(includeDora ? win.totalFan : win.totalFan - win.doraFan)
         // 累计役满最多算一倍；手动改翻时 `fans` 不可信，保留手填的翻数。
         guard win.fanOverride == nil, !win.fans.contains(where: { $0.fan.isYakuman }) else { return fan }
         return min(fan, 13)
     }
 
     enum CodingKeys: String, CodingKey {
-        case yuanPerPoint, basePoints, minimumFan, includeFlowers, kiriageMangan
+        case yuanPerPoint, basePoints, minimumFan, includeDora, kiriageMangan
         case swapSeatsEachRound, falseWinPenalty, totalHands, fanCap, allowKuitan, uma, onlyDiscarderPays
         case tobi, startingPoints, oka, returnPoints
     }
+
+    /// 开发版存档里的旧名字。
+    private enum LegacyKeys: String, CodingKey { case includeFlowers }
 
     /// 缺的字段用默认值，以后加规则不会让旧存档读不出来。
     public init(from decoder: Decoder) throws {
@@ -90,7 +93,8 @@ public struct GameRules: Hashable, Codable, Sendable {
         yuanPerPoint = try c.decodeIfPresent(Double.self, forKey: .yuanPerPoint) ?? d.yuanPerPoint
         basePoints = try c.decodeIfPresent(Int.self, forKey: .basePoints) ?? d.basePoints
         minimumFan = try c.decodeIfPresent(Int.self, forKey: .minimumFan) ?? d.minimumFan
-        includeFlowers = try c.decodeIfPresent(Bool.self, forKey: .includeFlowers) ?? d.includeFlowers
+        includeDora = try c.decodeIfPresent(Bool.self, forKey: .includeDora)
+            ?? decoder.container(keyedBy: LegacyKeys.self).decodeIfPresent(Bool.self, forKey: .includeFlowers) ?? d.includeDora
         kiriageMangan = try c.decodeIfPresent(Bool.self, forKey: .kiriageMangan) ?? d.kiriageMangan
         swapSeatsEachRound = try c.decodeIfPresent(Bool.self, forKey: .swapSeatsEachRound) ?? d.swapSeatsEachRound
         falseWinPenalty = try c.decodeIfPresent(Int.self, forKey: .falseWinPenalty) ?? d.falseWinPenalty
@@ -251,7 +255,7 @@ public struct WinRecord: Hashable, Codable, Sendable {
     public var context: WinContext
     public var fans: [FanEntry]
     /// 宝牌翻数。
-    public var flowerFan: Int
+    public var doraFan: Int
     /// 符数（默认 30 符）。
     public var fu: Int
     /// 本局也宣告了立直的其他玩家（每人投出 1000 点立直棒，由和牌者收取）。
@@ -259,14 +263,14 @@ public struct WinRecord: Hashable, Codable, Sendable {
     /// 事后在账本里直接改了翻数（含宝牌）。有它时 `fans` 不再可信，界面清空明细，改局时也不重新算翻。
     public var fanOverride: Int?
 
-    public init(winner: Int, discarder: Int?, hand: Hand?, context: WinContext, fans: [FanEntry], flowerFan: Int,
+    public init(winner: Int, discarder: Int?, hand: Hand?, context: WinContext, fans: [FanEntry], doraFan: Int,
                 fu: Int = 30, riichiPlayers: Set<Int> = [], fanOverride: Int? = nil) {
         self.winner = winner
         self.discarder = discarder
         self.hand = hand
         self.context = context
         self.fans = fans
-        self.flowerFan = flowerFan
+        self.doraFan = doraFan
         self.fu = fu
         self.riichiPlayers = riichiPlayers.subtracting([winner])
         self.fanOverride = fanOverride
@@ -275,12 +279,15 @@ public struct WinRecord: Hashable, Codable, Sendable {
     public init(winner: Int, discarder: Int?, hand: Hand, context: WinContext, result: ScoringResult,
                 riichiPlayers: Set<Int> = []) {
         self.init(winner: winner, discarder: discarder, hand: hand, context: context,
-                  fans: result.fans, flowerFan: result.flowerFan, fu: result.fu, riichiPlayers: riichiPlayers)
+                  fans: result.fans, doraFan: result.doraFan, fu: result.fu, riichiPlayers: riichiPlayers)
     }
 
     enum CodingKeys: String, CodingKey {
-        case winner, discarder, hand, context, fans, flowerFan, fu, riichiPlayers, fanOverride
+        case winner, discarder, hand, context, fans, doraFan, fu, riichiPlayers, fanOverride
     }
+
+    /// 开发版存档里的旧名字。
+    private enum LegacyKeys: String, CodingKey { case flowerFan }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -289,13 +296,14 @@ public struct WinRecord: Hashable, Codable, Sendable {
         hand = try c.decodeIfPresent(Hand.self, forKey: .hand)
         context = try c.decode(WinContext.self, forKey: .context)
         fans = try c.decode([FanEntry].self, forKey: .fans)
-        flowerFan = try c.decodeIfPresent(Int.self, forKey: .flowerFan) ?? 0
+        doraFan = try c.decodeIfPresent(Int.self, forKey: .doraFan)
+            ?? decoder.container(keyedBy: LegacyKeys.self).decodeIfPresent(Int.self, forKey: .flowerFan) ?? 0
         fu = try c.decodeIfPresent(Int.self, forKey: .fu) ?? 30
         riichiPlayers = (try c.decodeIfPresent(Set<Int>.self, forKey: .riichiPlayers) ?? []).subtracting([winner])
         fanOverride = try c.decodeIfPresent(Int.self, forKey: .fanOverride)
     }
 
-    public var totalFan: Int { fanOverride ?? fans.reduce(0) { $0 + $1.points } + flowerFan }
+    public var totalFan: Int { fanOverride ?? fans.reduce(0) { $0 + $1.points } + doraFan }
     public var isSelfDrawn: Bool { discarder == nil }
 }
 
@@ -512,7 +520,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
     /// 当前局某个玩家和牌时的 WinContext（场风、自风、喰断已经填好）。
     public func winContext(for winner: Int) -> WinContext {
         WinContext(prevalentWind: prevalentWind, seatWind: seatWind(of: winner), allowKuitan: rules.allowKuitan,
-                   countsDora: rules.includeFlowers)
+                   countsDora: rules.includeDora)
     }
 
     // MARK: 分数
@@ -682,7 +690,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
     /// 按现在的起和翻数，役翻不够的和牌（中途调高了起和翻数时会有）。
     public var winsBelowMinimum: [HandRecord] {
         records.filter { record in
-            record.outcome.wins.contains { $0.totalFan - $0.flowerFan < rules.minimumFan }
+            record.outcome.wins.contains { $0.totalFan - $0.doraFan < rules.minimumFan }
         }
     }
 
@@ -723,7 +731,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         context.seatWind = seatWind(of: win.winner, inHand: hand)
         context.selfDrawn = win.isSelfDrawn
         context.allowKuitan = rules.allowKuitan
-        context.countsDora = rules.includeFlowers
+        context.countsDora = rules.includeDora
         if context.selfDrawn != win.context.selfDrawn {
             context.kongInvolved = false
             context.lastTileOfWall = false
@@ -737,7 +745,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
            case .success(let result) = FanCalculator.score(tiles, context: context),
            edited || result.meetsMinimum(rules.minimumFan) {
             updated.fans = result.fans
-            updated.flowerFan = result.flowerFan
+            updated.doraFan = result.doraFan
             updated.fu = result.fu
         }
         return updated
@@ -751,8 +759,8 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
                 guard (0..<4).contains(discarder) else { throw GameError.invalidPlayer }
                 guard discarder != win.winner else { throw GameError.discarderIsWinner }
             }
-            let fanWithoutFlowers = win.totalFan - win.flowerFan
-            guard fanWithoutFlowers >= rules.minimumFan else { throw GameError.belowMinimumFan(fanWithoutFlowers) }
+            let fanWithoutDora = win.totalFan - win.doraFan
+            guard fanWithoutDora >= rules.minimumFan else { throw GameError.belowMinimumFan(fanWithoutDora) }
         case .doubleRon(let wins):
             guard wins.count == 2, wins[0].discarder != nil, wins[0].discarder == wins[1].discarder,
                   wins[0].winner != wins[1].winner else { throw GameError.notADoubleRon }

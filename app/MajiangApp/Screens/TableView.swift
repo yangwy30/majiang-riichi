@@ -43,7 +43,7 @@ struct TableView: View {
     private func content(_ game: Game) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // 家规跟国标不一样时才露一行，点开能改
+                // 桌规跟标准不一样时才露一行，点开能改
                 if let badge = game.rules.houseRuleBadge {
                     Button { editingRules = true } label: {
                         Text(badge + " ›")
