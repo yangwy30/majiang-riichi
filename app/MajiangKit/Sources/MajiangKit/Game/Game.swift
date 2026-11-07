@@ -36,6 +36,14 @@ public struct GameRules: Hashable, Codable, Sendable {
     public var uma: Int = 0
     /// 立直麻将荣和由放铳者一家包付。
     public var onlyDiscarderPays: Bool = true
+    /// 有人点数跌破 0 就结束（击飞）。正好 0 点继续打。
+    public var tobi: Bool = true
+    /// 每人起始点数。
+    public var startingPoints: Int = 25000
+    /// 头名赏（オカ）：25000 点起、30000 点返，每人差的 5000 点共 20000 点归第一名。
+    public var oka: Bool = true
+    /// 返点。
+    public var returnPoints: Int = 30000
 
     public init() {}
 
@@ -72,6 +80,7 @@ public struct GameRules: Hashable, Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case yuanPerPoint, basePoints, minimumFan, includeFlowers, kiriageMangan
         case swapSeatsEachRound, falseWinPenalty, totalHands, fanCap, allowKuitan, uma, onlyDiscarderPays
+        case tobi, startingPoints, oka, returnPoints
     }
 
     /// 缺的字段用默认值，以后加规则不会让旧存档读不出来。
@@ -90,6 +99,34 @@ public struct GameRules: Hashable, Codable, Sendable {
         allowKuitan = try c.decodeIfPresent(Bool.self, forKey: .allowKuitan) ?? d.allowKuitan
         uma = try c.decodeIfPresent(Int.self, forKey: .uma) ?? d.uma
         onlyDiscarderPays = try c.decodeIfPresent(Bool.self, forKey: .onlyDiscarderPays) ?? d.onlyDiscarderPays
+        tobi = try c.decodeIfPresent(Bool.self, forKey: .tobi) ?? d.tobi
+        startingPoints = try c.decodeIfPresent(Int.self, forKey: .startingPoints) ?? d.startingPoints
+        oka = try c.decodeIfPresent(Bool.self, forKey: .oka) ?? d.oka
+        returnPoints = try c.decodeIfPresent(Int.self, forKey: .returnPoints) ?? d.returnPoints
+    }
+}
+
+/// 途中流局的原因。都不收付，庄家连庄，本场 +1，已投的立直棒留在桌上。
+public enum AbortiveDraw: String, CaseIterable, Hashable, Codable, Sendable {
+    /// 九种九牌
+    case kyuushuKyuuhai
+    /// 四风连打
+    case suufonRenda
+    /// 四家立直
+    case suuchaRiichi
+    /// 四杠散了
+    case suukaikan
+    /// 三家和了（同一张牌三家都能荣和，按流局算）
+    case sanchahou
+
+    public var name: String {
+        switch self {
+        case .kyuushuKyuuhai: return tr("九种九牌", "九種九牌", "Nine Terminals")
+        case .suufonRenda: return tr("四风连打", "四風連打", "Four Winds")
+        case .suuchaRiichi: return tr("四家立直", "四家立直", "Four Riichi")
+        case .suukaikan: return tr("四杠散了", "四開槓", "Four Kans")
+        case .sanchahou: return tr("三家和了", "三家和", "Triple Ron")
+        }
     }
 }
 
@@ -98,10 +135,25 @@ public enum HandOutcome: Hashable, Codable, Sendable {
     case win(WinRecord)
     /// 流局：记录哪几家听牌（0–3）及哪几家在本局宣告了立直（每家投出 1000 点留作桌面供托）。
     case drawn(tenpai: Set<Int> = [], riichi: Set<Int> = [])
+    /// 双响：同一张牌两家荣和，靠点炮者下家最近的排在前面。
+    case doubleRon([WinRecord])
+    /// 流局满贯：`players` 按满贯自摸收点，不再有听牌罚符。连庄、本场和供托都和荒牌流局一样。
+    case nagashi(players: Set<Int>, tenpai: Set<Int> = [], riichi: Set<Int> = [])
+    /// 途中流局。
+    case abortive(AbortiveDraw, riichi: Set<Int> = [])
     /// 错和（诈和）：赔另外三家罚符，不推进局数。
     case falseWin(offender: Int)
     /// 手动记分，四个数加起来为 0。
     case manual(deltas: [Int], note: String)
+
+    /// 这一局里和牌的记录。
+    public var wins: [WinRecord] {
+        switch self {
+        case .win(let win): return [win]
+        case .doubleRon(let wins): return wins
+        default: return []
+        }
+    }
 
     /// 这一局打完了没有（错和之后这一局继续打）。
     public var advancesHand: Bool {
@@ -110,12 +162,14 @@ public enum HandOutcome: Hashable, Codable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case win, drawn, falseWin, manual
+        case win, drawn, falseWin, manual, doubleRon, nagashi, abortive
     }
     private enum WinKeys: String, CodingKey { case _0 }
     private enum DrawnKeys: String, CodingKey { case tenpai, riichi }
     private enum FalseWinKeys: String, CodingKey { case offender }
     private enum ManualKeys: String, CodingKey { case deltas, note }
+    private enum NagashiKeys: String, CodingKey { case players, tenpai, riichi }
+    private enum AbortiveKeys: String, CodingKey { case kind, riichi }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -127,6 +181,17 @@ public enum HandOutcome: Hashable, Codable, Sendable {
             let riichi = try nested.decodeIfPresent(Set<Int>.self, forKey: .riichi) ?? []
             let tenpai = (try nested.decodeIfPresent(Set<Int>.self, forKey: .tenpai) ?? []).union(riichi)
             self = .drawn(tenpai: tenpai, riichi: riichi)
+        } else if c.contains(.doubleRon) {
+            self = .doubleRon(try c.decode([WinRecord].self, forKey: .doubleRon))
+        } else if c.contains(.nagashi) {
+            let nested = try c.nestedContainer(keyedBy: NagashiKeys.self, forKey: .nagashi)
+            self = .nagashi(players: try nested.decode(Set<Int>.self, forKey: .players),
+                            tenpai: try nested.decodeIfPresent(Set<Int>.self, forKey: .tenpai) ?? [],
+                            riichi: try nested.decodeIfPresent(Set<Int>.self, forKey: .riichi) ?? [])
+        } else if c.contains(.abortive) {
+            let nested = try c.nestedContainer(keyedBy: AbortiveKeys.self, forKey: .abortive)
+            self = .abortive(try nested.decode(AbortiveDraw.self, forKey: .kind),
+                             riichi: try nested.decodeIfPresent(Set<Int>.self, forKey: .riichi) ?? [])
         } else if c.contains(.falseWin) {
             let nested = try c.nestedContainer(keyedBy: FalseWinKeys.self, forKey: .falseWin)
             self = .falseWin(offender: try nested.decode(Int.self, forKey: .offender))
@@ -154,6 +219,17 @@ public enum HandOutcome: Hashable, Codable, Sendable {
             if !riichi.isEmpty {
                 try nested.encode(riichi, forKey: .riichi)
             }
+        case .doubleRon(let wins):
+            try c.encode(wins, forKey: .doubleRon)
+        case .nagashi(let players, let tenpai, let riichi):
+            var nested = c.nestedContainer(keyedBy: NagashiKeys.self, forKey: .nagashi)
+            try nested.encode(players, forKey: .players)
+            try nested.encode(tenpai, forKey: .tenpai)
+            try nested.encode(riichi, forKey: .riichi)
+        case .abortive(let kind, let riichi):
+            var nested = c.nestedContainer(keyedBy: AbortiveKeys.self, forKey: .abortive)
+            try nested.encode(kind, forKey: .kind)
+            try nested.encode(riichi, forKey: .riichi)
         case .falseWin(let offender):
             var nested = c.nestedContainer(keyedBy: FalseWinKeys.self, forKey: .falseWin)
             try nested.encode(offender, forKey: .offender)
@@ -270,6 +346,8 @@ public enum GameError: Error, Hashable, Sendable {
     case deltasMustSumToZero
     case recordNotFound
     case tooManyHands(Int)
+    /// 第二家荣和要和上一局同一个人点炮，且不能是同一家和牌。
+    case notADoubleRon
 
     public var message: String {
         switch self {
@@ -282,6 +360,9 @@ public enum GameError: Error, Hashable, Sendable {
                 : tr("只有 \(fan) 翻役，不够起和", "\(fan)翻のみのため縛りを満たしていません", "Only \(fan) han of yaku, below minimum")
         case .deltasMustSumToZero: return tr("四个人的得失点加起来要等于 0", "4人の収支合計は0にしてください", "The 4 players' point changes must sum to 0")
         case .recordNotFound: return tr("找不到这一局", "この局が見つかりません", "Hand record not found")
+        case .notADoubleRon: return tr("双响要接在一次荣和后面，点炮的是同一个人，和牌的是另一家",
+                                       "ダブロンは同じ放銃者への別の和了者のロンのみ記録できます",
+                                       "A double ron needs the same discarder and a different winner")
         case .tooManyHands(let total): return tr("这样改就超过 \(total) 局了", "\(total)局を超えてしまいます", "Exceeds \(total) hands")
         }
     }
@@ -340,7 +421,12 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
             } else {
                 return (hand + 1, 0, 0)
             }
-        case .drawn(let tenpai, let riichi):
+        case .doubleRon(let wins):
+            if wins.contains(where: { $0.winner == currentDealer }) {
+                return (hand, honba + 1, 0)
+            }
+            return (hand + 1, 0, 0)
+        case .drawn(let tenpai, let riichi), .nagashi(_, let tenpai, let riichi):
             let validRiichi = riichi.filter { (0..<4).contains($0) }
             let effectiveTenpai = tenpai.union(validRiichi)
             let nextPot = pot + validRiichi.count * 1000
@@ -349,6 +435,8 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
             } else {
                 return (hand + 1, honba + 1, nextPot)
             }
+        case .abortive(_, let riichi):
+            return (hand, honba + 1, pot + riichi.filter { (0..<4).contains($0) }.count * 1000)
         case .falseWin:
             return (hand, honba, pot)
         case .manual:
@@ -373,7 +461,17 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
     /// 当前桌面上累积的立直供托点数（流局遗留的立直棒，每根 1000 点；下次有人和牌时由和牌者全收）。
     public var currentPot: Int { currentProgression.pot }
 
-    public var isFinished: Bool { endedAt != nil || currentHandIndex >= rules.totalHands }
+    public var isFinished: Bool { endedAt != nil || currentHandIndex >= rules.totalHands || isBusted }
+
+    /// 每个人现在实际有多少点（起始点数加上累计得失，已投的立直棒已经扣掉）。
+    public var currentPoints: [Int] {
+        records.reduce(into: Array(repeating: rules.startingPoints, count: 4)) { acc, record in
+            for i in 0..<4 { acc[i] += record.deltas[i] }
+        }
+    }
+
+    /// 有人被击飞。
+    public var isBusted: Bool { rules.tobi && currentPoints.contains { $0 < 0 } }
 
     public var remainingHands: Int { max(0, rules.totalHands - currentHandIndex) }
 
@@ -418,7 +516,8 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
 
     // MARK: 分数
 
-    /// 每个人的累计净得失点。终局时若桌面仍有未收走的立直供托棒，按日麻标准规则（トップ取り）归第一名；若设有顺位马（ウマ），终局时按名次加减。
+    /// 每个人的累计净得失点。终局时若桌面仍有未收走的立直供托棒，按日麻标准规则（トップ取り）归第一名；
+    /// 再按头名赏（オカ）和顺位马（ウマ）加减。
     public var scores: [Int] {
         var total = records.reduce(into: [0, 0, 0, 0]) { acc, record in
             for i in 0..<4 { acc[i] += record.deltas[i] }
@@ -426,6 +525,11 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         if isFinished {
             if currentPot > 0, let top = Settlement.ranking(scores: total).first {
                 total[top] += currentPot
+            }
+            if rules.oka, let top = Settlement.ranking(scores: total).first {
+                let shortfall = rules.returnPoints - rules.startingPoints
+                for i in 0..<4 { total[i] -= shortfall }
+                total[top] += 4 * shortfall
             }
             if rules.uma > 0 {
                 let ranked = Settlement.ranking(scores: total)
@@ -447,10 +551,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
 
     /// 本场最大的一手和牌。
     public var biggestWin: (record: HandRecord, win: WinRecord)? {
-        records.compactMap { record -> (HandRecord, WinRecord)? in
-            if case .win(let win) = record.outcome { return (record, win) }
-            return nil
-        }
+        records.flatMap { record in record.outcome.wins.map { (record, $0) } }
         .max { ($0.0.deltas[$0.1.winner], $0.1.totalFan) < ($1.0.deltas[$1.1.winner], $1.1.totalFan) }
     }
 
@@ -475,6 +576,44 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         let outcome = HandOutcome.drawn(tenpai: validTenpai, riichi: validRiichi)
         return append(outcome, inHand: state.hand, honba: state.honba, pot: state.pot,
                       deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba, pot: state.pot))
+    }
+
+    /// 流局满贯。按荒牌流局的方式推进局数，只是不收听牌罚符。
+    @discardableResult
+    public mutating func recordNagashi(players: Set<Int>, tenpai: Set<Int> = [], riichi: Set<Int> = []) throws -> HandRecord {
+        guard !isFinished else { throw GameError.finished }
+        let outcome = HandOutcome.nagashi(players: players, tenpai: tenpai.union(riichi), riichi: riichi)
+        try validate(outcome)
+        let state = currentProgression
+        return append(outcome, inHand: state.hand, honba: state.honba, pot: state.pot,
+                      deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba, pot: state.pot))
+    }
+
+    /// 途中流局。四家立直时四个人都算投了立直棒，不用传。
+    @discardableResult
+    public mutating func recordAbortiveDraw(_ kind: AbortiveDraw, riichi: Set<Int> = []) throws -> HandRecord {
+        guard !isFinished else { throw GameError.finished }
+        let outcome = HandOutcome.abortive(kind, riichi: kind == .suuchaRiichi ? [0, 1, 2, 3] : riichi)
+        try validate(outcome)
+        let state = currentProgression
+        return append(outcome, inHand: state.hand, honba: state.honba, pot: state.pot,
+                      deltas: deltas(for: outcome, inHand: state.hand, honba: state.honba, pot: state.pot))
+    }
+
+    /// 把刚记下的荣和改成双响：`second` 是同一张牌上另一家的荣和。三家都和按途中流局记。
+    public mutating func addSecondRon(_ second: WinRecord) throws {
+        guard let last = records.last, case .win(let first) = last.outcome,
+              let discarder = first.discarder, second.discarder == discarder, second.winner != first.winner else {
+            throw GameError.notADoubleRon
+        }
+        try validate(.win(second))
+        let seats = seating(ofRound: roundIndex(ofHand: last.handIndex))
+        func distance(_ win: WinRecord) -> Int {
+            (seats.firstIndex(of: win.winner)! - seats.firstIndex(of: discarder)! + 4) % 4
+        }
+        let ordered = [first, second].sorted { distance($0) < distance($1) }
+        records[records.count - 1].outcome = .doubleRon(ordered)
+        try reflow(edited: nil)
     }
 
     @discardableResult
@@ -535,8 +674,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
     /// 按现在的起和翻数，役翻不够的和牌（中途调高了起和翻数时会有）。
     public var winsBelowMinimum: [HandRecord] {
         records.filter { record in
-            guard case .win(let win) = record.outcome else { return false }
-            return win.totalFan - win.flowerFan < rules.minimumFan
+            record.outcome.wins.contains { $0.totalFan - $0.flowerFan < rules.minimumFan }
         }
     }
 
@@ -559,6 +697,8 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
             let isEdited = records[i].id == edited
             if case .win(let win) = records[i].outcome {
                 records[i].outcome = .win(reconciled(win, inHand: hand, edited: isEdited))
+            } else if case .doubleRon(let wins) = records[i].outcome {
+                records[i].outcome = .doubleRon(wins.map { reconciled($0, inHand: hand, edited: isEdited) })
             } else if case .drawn(let tenpai, let riichi) = records[i].outcome {
                 records[i].outcome = .drawn(tenpai: tenpai.union(riichi), riichi: riichi)
             }
@@ -604,10 +744,20 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
             }
             let fanWithoutFlowers = win.totalFan - win.flowerFan
             guard fanWithoutFlowers >= rules.minimumFan else { throw GameError.belowMinimumFan(fanWithoutFlowers) }
+        case .doubleRon(let wins):
+            guard wins.count == 2, wins[0].discarder != nil, wins[0].discarder == wins[1].discarder,
+                  wins[0].winner != wins[1].winner else { throw GameError.notADoubleRon }
+            for win in wins { try validate(.win(win)) }
         case .drawn(let tenpai, let riichi):
             guard tenpai.allSatisfy({ (0..<4).contains($0) }), riichi.allSatisfy({ (0..<4).contains($0) }) else {
                 throw GameError.invalidPlayer
             }
+        case .nagashi(let players, let tenpai, let riichi):
+            guard !players.isEmpty, players.union(tenpai).union(riichi).allSatisfy({ (0..<4).contains($0) }) else {
+                throw GameError.invalidPlayer
+            }
+        case .abortive(_, let riichi):
+            guard riichi.allSatisfy({ (0..<4).contains($0) }) else { throw GameError.invalidPlayer }
         case .falseWin(let offender):
             guard (0..<4).contains(offender) else { throw GameError.invalidPlayer }
         case .manual(let deltas, _):
@@ -629,8 +779,14 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
                 riichiPlayers: win.riichiPlayers,
                 rules: rules
             )
+        case .doubleRon(let wins):
+            return Payment.doubleRonDeltas(wins: wins, dealer: dealer(ofHand: handIndex), honba: honba, pot: pot, rules: rules)
         case .drawn(let tenpai, let riichi):
             return Payment.drawDeltas(tenpai: tenpai, riichi: riichi)
+        case .nagashi(let players, _, let riichi):
+            return Payment.nagashiDeltas(players: players, dealer: dealer(ofHand: handIndex), riichi: riichi)
+        case .abortive(_, let riichi):
+            return (0..<4).map { riichi.contains($0) ? -1000 : 0 }
         case .falseWin(let offender):
             return Payment.falseWinDeltas(offender: offender, penalty: rules.falseWinPenalty)
         case .manual(let deltas, _):
@@ -728,6 +884,43 @@ public enum Payment {
         }
         deltas[winner] += max(0, pot)
         return deltas
+    }
+
+    /// 双响：点炮者分别付两家。本场棒、桌上供托和立直棒都归离点炮者最近的和牌者（`wins[0]`）。
+    /// 另一家和牌者如果立直了，他的立直棒也归最近的那家。
+    public static func doubleRonDeltas(wins: [WinRecord], dealer: Int, honba: Int = 0, pot: Int = 0,
+                                       rules: GameRules = .standard) -> [Int] {
+        guard let nearest = wins.first else { return [0, 0, 0, 0] }
+        var total = [0, 0, 0, 0]
+        for (index, win) in wins.enumerated() {
+            let share = winDeltas(winner: win.winner, discarder: win.discarder, dealer: dealer,
+                                  totalFan: rules.paidFan(win), fu: win.fu,
+                                  honba: index == 0 ? honba : 0, rules: rules)
+            for i in 0..<4 { total[i] += share[i] }
+        }
+        var sticks = wins.reduce(into: Set<Int>()) { $0.formUnion($1.riichiPlayers) }
+        for win in wins where win.context.riichi || win.context.doubleRiichi { sticks.insert(win.winner) }
+        sticks.remove(nearest.winner)
+        for p in sticks where (0..<4).contains(p) {
+            total[p] -= 1000
+            total[nearest.winner] += 1000
+        }
+        total[nearest.winner] += max(0, pot)
+        return total
+    }
+
+    /// 流局满贯：每个 `players` 按满贯自摸收点（不加本场），立直的人各扣 1000 点留作供托。
+    public static func nagashiDeltas(players: Set<Int>, dealer: Int, riichi: Set<Int> = []) -> [Int] {
+        var total = [0, 0, 0, 0]
+        for player in players where (0..<4).contains(player) {
+            for p in 0..<4 where p != player {
+                let pay = (player == dealer || p == dealer) ? 4000 : 2000
+                total[p] -= pay
+                total[player] += pay
+            }
+        }
+        for p in riichi where (0..<4).contains(p) { total[p] -= 1000 }
+        return total
     }
 
     /// 荒牌流局听牌罚符（不听罚 3000 点）与流局立直棒供托：

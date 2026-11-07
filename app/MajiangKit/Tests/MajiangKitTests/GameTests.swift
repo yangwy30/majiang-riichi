@@ -223,6 +223,7 @@ final class GameTests: XCTestCase {
         // 若终局时仍有未领供托，归一位（トップ取り），总分依然守恒为 0
         var endGame = makeGame()
         endGame.rules.totalHands = 4
+        endGame.rules.oka = false
         try endGame.recordWin(win(2, discarder: 3, fan: 5)) // 东 1：2 赢 +8000
         try endGame.recordDraw(tenpai: [], riichi: [])      // 东 2
         try endGame.recordDraw(tenpai: [], riichi: [])      // 东 3
@@ -374,6 +375,7 @@ final class ArchiveAndParsingTests: XCTestCase {
         rules.totalHands = 4
         rules.allowKuitan = false
         rules.uma = 20
+        rules.oka = false
         var game = Game(players: ["东", "南", "西", "北"].map { Player(name: $0) }, rules: rules)
         try game.recordWin(WinRecord(winner: 1, discarder: 0, hand: nil, context: WinContext(), fans: [], flowerFan: 0, fu: 30, fanOverride: 4)) // 南赢东 7700
         try game.recordDraw(tenpai: [2]) // 西 +3000，东/南/北各 -1000
