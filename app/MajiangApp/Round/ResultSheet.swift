@@ -1,7 +1,7 @@
 import SwiftUI
 import MajiangKit
 
-/// 结果：从下往上弹出的一层。大番数、每个番种一句白话、这局谁付多少。
+/// 结果：从下往上弹出的一层。翻符和点数大字，役种一行一个，这局谁付多少。
 struct ResultSheet: View {
     var flow: RoundFlow
     var finish: (HandOutcome) -> Void
@@ -16,7 +16,7 @@ struct ResultSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(30)
+        .presentationCornerRadius(16)
         .presentationBackground(Theme.paper)
     }
 
@@ -47,50 +47,48 @@ struct ResultSheet: View {
                 .padding(.top, 20)
                 let paid = game.rules.paidFan(record)
                 let limit = Payment.limitName(han: paid, fu: record.fu, kiriageMangan: game.rules.kiriageMangan)
-                HStack(alignment: .center, spacing: 12) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("\(record.totalFan)")
-                            .font(.system(size: 72, weight: .ultraLight).monospacedDigit())
-                            .tracking(-2)
-                        Text(tr("翻", "翻", "han")).font(Theme.serif(20))
-                        Text(tr("· \(record.fu) 符", "・\(record.fu)符", "· \(record.fu) fu"))
-                            .font(.system(size: 18, weight: .light).monospacedDigit())
-                            .foregroundStyle(Theme.gray)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 6) {
+                // 这手值多少：翻符一行，点数最大
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .center, spacing: 10) {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text("\(record.totalFan)").font(Theme.score(30, weight: .semibold))
+                            Text(tr("翻", "翻", "han")).font(Theme.serif(16))
+                            Text("\(record.fu)")
+                                .font(Theme.score(30, weight: .semibold))
+                                .padding(.leading, 10)
+                            Text(tr("符", "符", "fu")).font(Theme.serif(16))
+                        }
+                        Spacer()
                         if let limit {
                             LimitStamp(text: limit, size: 16)
                         }
-                        if record.winner < deltas.count {
-                            Text(Theme.signed(deltas[record.winner]))
-                                .font(Theme.score(22, weight: .regular))
-                                .foregroundStyle(Theme.vermilion)
-                        }
+                    }
+                    if record.winner < deltas.count {
+                        Text(Theme.signed(deltas[record.winner]))
+                            .font(Theme.score(60, weight: .semibold))
+                            .foregroundStyle(Theme.vermilion)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(Theme.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(Theme.lineSoft, lineWidth: 1)
-                )
+                .padding(.vertical, 16)
+                .block()
                 .padding(.top, 4)
+                .accessibilityElement(children: .combine)
                 if paid < record.totalFan {
                     Text(tr("桌规封顶 \(game.rules.fanCap) 翻：\(record.totalFan) 翻按 \(game.rules.fanCap) 算",
                             "ルール上限 \(game.rules.fanCap)翻：\(record.totalFan)翻を\(game.rules.fanCap)翻として計算",
                             "Capped at \(game.rules.fanCap) han (\(record.totalFan) han counted as \(game.rules.fanCap))"))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Theme.lineSoft, in: Capsule())
-                        .frame(maxWidth: .infinity)
+                        .padding(.top, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
+                SectionLabel("役种与宝牌")
+                    .padding(.top, 22)
+                    .padding(.bottom, 6)
                 FanList(win: record)
-                    .padding(.top, 14)
 
                 SectionLabel("这局谁付多少")
                     .padding(.top, 22)
@@ -103,7 +101,7 @@ struct ResultSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 10)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 20)
         }
         .bottomBar {
             Button("记下") { finish(.win(record)) }

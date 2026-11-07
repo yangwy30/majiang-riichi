@@ -3,50 +3,73 @@ import MajiangKit
 import SwiftUI
 import UIKit
 
-/// 视觉「勝色与朱」：三桠和纸底（#F3F4F0）、深胜色靛蓝墨字（#16202E）、立直棒朱红（#C9372C）。
-/// 整个 App 只用一种朱红（亲家印章、赢的点数、满贯以上段位印章、立直棒红点）。输的分数用深胜色加负号，不用红绿。
+/// 视觉「和纸与藍」：和纸底、藍色主操作、朱红只用于立直棒和赢点。颜色都在 Assets.xcassets 的 Washi* 里，各有深色版本。
+/// 文字用 `ink`，填充用 `indigo`（上面放白字）：`ink` 在深色模式是浅色，不能拿来垫白字。
 enum Theme {
-    static let paper = Color(hex: 0xF3F4F0)
-    static let white = Color.white
-    static let line = Color(hex: 0xDFE2DC)
-    /// 白色块里面的分隔线。
-    static let lineSoft = Color(hex: 0xE8EBE5)
-    static let gray = Color(hex: 0x646D78)
-    static let faint = Color(hex: 0x9CA4AE)
-    static let ink = Color(hex: 0x16202E)
-    static let vermilion = Color(hex: 0xC9372C)
-    static let segment = Color(hex: 0xE5E8E2)
-    /// 拍照页的底色。
+    static let paper = Color("WashiPaper")
+    /// 卡片底：浅一档的和纸，配细线边框，不用阴影。
+    static let card = Color("WashiCard")
+    static let line = Color("WashiLine")
+    /// 卡片里面的分隔线。
+    static let lineSoft = Color("WashiLineSoft")
+    static let gray = Color("WashiGray")
+    static let faint = Color("WashiFaint")
+    static let ink = Color("WashiInk")
+    static let indigo = Color("WashiIndigo")
+    static let vermilion = Color("WashiVermilion")
+    static let segment = Color("WashiSegment")
+    /// 拍照页的底色，深浅模式一样。
     static let darkroom = Color(hex: 0x0F151E)
+    /// 卡片、按钮、选项的圆角。
+    static let radius: CGFloat = 12
 
     /// 页面内容最宽多少（含两边 24 的留白）。iPhone Duo 内屏有 669 点宽、横过来 951 点，
     /// 字和按钮不铺满，收在中间一栏，跟在普通 iPhone 上看到的比例差不多。窄屏上不起作用。
     static let columnWidth: CGFloat = 560
 
-    // 牌面
+    // 牌面：实物颜色，深色模式也不变。牌背是藍色，底边露一点。
     static let tileFace = Color(hex: 0xFFFDF8)
     static let tileDim = Color(hex: 0xE9E5DA)
-    static let tileEdge = Color(hex: 0xE2DDD0)
-    static let tileShadow = Color(hex: 0xD6D0C1)
+    static let tileEdge = Color(hex: 0xE4DFD2)
+    static let tileShadow = Color(hex: 0x23395B)
+    static let tileBack = Color(hex: 0x23395B)
+    static let tileBackDeep = Color(hex: 0x1A2C48)
+    static let tileInk = Color(hex: 0x1C2A40)
     static let tileBlue = Color(hex: 0x23406B)
     static let tileGreen = Color(hex: 0x2F5D46)
-    static let tileRed = Color(hex: 0xC23B22)
+    static let tileRed = Color(hex: 0xC8402A)
 
     static func scoreColor(_ value: Int) -> Color { value > 0 ? vermilion : ink }
 
-    /// 「+92」「−76」「0」。负号用真正的减号，和加号一样宽。
+    /// 「+12,000」「−7,600」「0」。负号用真正的减号，和加号一样宽。
     static func signed(_ value: Int) -> String {
-        value > 0 ? "+\(value)" : value < 0 ? "−\(-value)" : "0"
+        value > 0 ? "+\(grouped(value))" : value < 0 ? "−\(grouped(-value))" : "0"
     }
 
-    /// 分数：SF 细体，等宽数字。
-    static func score(_ size: CGFloat, weight: Font.Weight = .light) -> Font {
-        .system(size: size, weight: weight).monospacedDigit()
+    /// 风位一个字：英文只写首字母（E、S、W、N），窄的地方放不下四个字母。
+    static func windGlyph(_ name: String) -> String {
+        AppLang.current == .en ? String(name.prefix(1)) : name
     }
 
-    /// 宋体只用于风位、庄、「番」字、名次和第一次打开时的首页。iOS 没有自带中文宋体，所以打包了 Noto Serif SC 粗体和
-    /// 半粗体的子集（只有用到的几十个字，SIL OFL 许可，见 Resources/Fonts）。别的字会退回系统字体，
-    /// 宋体里要加新字时得重新做子集。
+    /// 「25,000」。不跟地区走，三种语言都是逗号。
+    static func grouped(_ value: Int) -> String {
+        var digits = String(abs(value))
+        var parts: [String] = []
+        while digits.count > 3 {
+            parts.insert(String(digits.suffix(3)), at: 0)
+            digits.removeLast(3)
+        }
+        parts.insert(digits, at: 0)
+        return (value < 0 ? "−" : "") + parts.joined(separator: ",")
+    }
+
+    /// 点数、翻、符：圆体，等宽数字。
+    static func score(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        .system(size: size, weight: weight, design: .rounded).monospacedDigit()
+    }
+
+    /// 明朝体，用于标题、风位、局顺、翻。日文用系统的 Hiragino Mincho，英文用系统衬线；
+    /// 中文先用打包的 Noto Serif SC 子集（SIL OFL，见 Resources/Fonts），子集里没有的字由 Hiragino Mincho 补。
     static func serif(_ size: CGFloat, semibold: Bool = false) -> Font {
         if AppLang.current == .ja {
             return .custom("HiraMinProN-W6", fixedSize: size)
@@ -54,9 +77,32 @@ enum Theme {
         if AppLang.current == .en {
             return .system(size: size, weight: semibold ? .semibold : .bold, design: .serif)
         }
-        if let name = semibold ? serifFonts.semibold : serifFonts.bold { return .custom(name, fixedSize: size) }
+        if let name = semibold ? serifFonts.semibold : serifFonts.bold, let base = UIFont(name: name, size: size) {
+            let fallback = UIFontDescriptor(name: "HiraMinProN-W6", size: size)
+            let descriptor = base.fontDescriptor.addingAttributes([.cascadeList: [fallback]])
+            return Font(UIFont(descriptor: descriptor, size: size))
+        }
         return .system(size: size, weight: semibold ? .semibold : .bold, design: .serif)
     }
+
+    /// 一整句标题用的字体。中文里有明朝体都没有的简体字（比如「谁」）时，整句换成系统黑体，免得一句话里两种字体。
+    static func heading(_ text: String, size: CGFloat) -> Font {
+        if AppLang.current == .zh && !text.unicodeScalars.allSatisfy(serifCoverage.contains) {
+            return .system(size: size, weight: .semibold)
+        }
+        return serif(size, semibold: true)
+    }
+
+    private static let serifCoverage: CharacterSet = {
+        _ = serifFonts
+        var set = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).union(.symbols)
+        for name in ["NotoSerifSC-SemiBold", "HiraMinProN-W6"] {
+            if let font = UIFont(name: name, size: 12) {
+                set.formUnion(CTFontCopyCharacterSet(font as CTFont) as CharacterSet)
+            }
+        }
+        return set
+    }()
 
     private static let serifFonts: (bold: String?, semibold: String?) = {
         func register(_ file: String, name: String) -> String? {
@@ -94,12 +140,13 @@ extension View {
             .tint(Theme.ink)
     }
 
-    /// 白色圆角块：只用来收纳一组设置，列表不套卡片。
-    func block(radius: CGFloat = 20) -> some View {
+    /// 卡片：浅和纸底加一圈细线，不用阴影。
+    func block(radius: CGFloat = Theme.radius) -> some View {
         self
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.white, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Theme.line, lineWidth: 0.5))
     }
 
     /// 页面底部固定的按钮区，底下垫一层纸色，免得滚动内容透出来。
@@ -129,17 +176,18 @@ private struct ReadableColumn: ViewModifier {
     }
 }
 
-/// 每页唯一的黑色胶囊主按钮。不能点时变成灰底，按钮上直接写原因。
+/// 每页唯一的藍色主按钮。不能点时变成灰底，按钮上直接写原因。
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        let shape = RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
+        return configuration.label
             .font(.system(size: isEnabled ? 17 : 16, weight: isEnabled ? .semibold : .medium))
-            .frame(maxWidth: .infinity, minHeight: 56)
+            .frame(maxWidth: .infinity, minHeight: 54)
             .foregroundStyle(isEnabled ? Color.white : Theme.gray)
-            .background(isEnabled ? Theme.ink.opacity(configuration.isPressed ? 0.82 : 1) : Theme.line, in: Capsule())
-            .contentShape(Capsule())
+            .background(isEnabled ? Theme.indigo.opacity(configuration.isPressed ? 0.82 : 1) : Theme.segment, in: shape)
+            .contentShape(shape)
     }
 }
 
@@ -172,7 +220,7 @@ extension ButtonStyle where Self == TextButtonStyle {
 // MARK: - 顶部按钮
 
 /// 顶部按钮的规矩：左上是回去或关掉（推进来的页写「‹ 回到哪儿」，弹出层有改动写「取消」、只是看看写「关闭」），
-/// 右上只放这一页的工具，用浅一档的字。确认不放顶上，一律用页面底部的黑色主按钮。
+/// 右上只放这一页的工具，用浅一档的字。确认不放顶上，一律用页面底部的主按钮。
 /// 都是直接写在纸上的字：iOS 26 起系统会给导航栏按钮包一层玻璃泡，这里关掉。
 struct NavBack: ToolbarContent {
     var title: String
@@ -193,7 +241,6 @@ struct NavBack: ToolbarContent {
                 }
             }
             .buttonStyle(NavButtonStyle())
-            .accessibilityLabel("回到\(title)")
         }
         .withoutGlass()
     }
@@ -332,7 +379,7 @@ struct SectionLabel: View {
 
     var body: some View {
         Text(LocalizedStringKey(text))
-            .font(.system(size: 14, weight: .medium))
+            .font(.system(size: 13, weight: .medium))
             .foregroundStyle(Theme.gray)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -346,8 +393,7 @@ struct PageTitle: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(LocalizedStringKey(title))
-                .font(.system(size: 30, weight: .semibold))
-                .tracking(-0.4)
+                .font(Theme.heading(title, size: 28))
             if let subtitle {
                 Text(LocalizedStringKey(subtitle))
                     .font(.system(size: 15))
@@ -358,7 +404,7 @@ struct PageTitle: View {
     }
 }
 
-/// 两段的切换：底色 #ECEAE3，选中的一段是白色。
+/// 几段的切换：选中的一段是卡片色，带细线。
 struct SegmentedSwitch<Value: Hashable>: View {
     var options: [(Value, String)]
     @Binding var selection: Value
@@ -376,9 +422,9 @@ struct SegmentedSwitch<Value: Hashable>: View {
                         .frame(maxWidth: .infinity, minHeight: 36)
                         .background {
                             if on {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Theme.white)
-                                    .shadow(color: Theme.ink.opacity(0.08), radius: 1.5, y: 1)
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Theme.card)
+                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.line, lineWidth: 0.5))
                             }
                         }
                         .contentShape(Rectangle())
@@ -388,12 +434,12 @@ struct SegmentedSwitch<Value: Hashable>: View {
             }
         }
         .padding(3)
-        .background(Theme.segment, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .background(Theme.segment, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .animation(.easeOut(duration: 0.15), value: selection)
     }
 }
 
-/// 选人的胶囊：选中黑底白字，没选白底细线。
+/// 选人的小方块：选中藍底白字，没选卡片底细线。
 struct NameChip: View {
     var name: String
     var selected: Bool
@@ -407,16 +453,16 @@ struct NameChip: View {
                 .padding(.horizontal, 16)
                 .frame(minHeight: 36)
                 .foregroundStyle(selected ? Color.white : Theme.ink)
-                .background(selected ? Theme.ink : Theme.white, in: Capsule())
-                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.line))
-                .contentShape(Capsule())
+                .background(selected ? Theme.indigo : Theme.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(selected ? Color.clear : Theme.line))
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
-/// 一排等宽的选项（核对页的谁和了、怎么和的）：选中黑底白字，没选白底细线。名字长了缩小，不折行。
+/// 一排等宽的选项（核对页的谁和了、怎么和的）：选中藍底白字，没选卡片底细线。名字长了缩小，不折行。
 struct ChoiceChip: View {
     var title: String
     var selected: Bool
@@ -431,9 +477,9 @@ struct ChoiceChip: View {
                 .padding(.horizontal, 6)
                 .frame(maxWidth: .infinity, minHeight: 40)
                 .foregroundStyle(selected ? Color.white : Theme.ink)
-                .background(selected ? Theme.ink : Theme.white, in: Capsule())
-                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.line))
-                .contentShape(Capsule())
+                .background(selected ? Theme.indigo : Theme.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(selected ? Color.clear : Theme.line))
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -445,6 +491,6 @@ struct Hairline: View {
     var color: Color = Theme.line
 
     var body: some View {
-        Rectangle().fill(color).frame(height: 1)
+        Rectangle().fill(color).frame(height: 0.5)
     }
 }

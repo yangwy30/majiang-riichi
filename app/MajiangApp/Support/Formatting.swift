@@ -92,6 +92,12 @@ extension HandRecord {
 }
 
 extension Game {
+    /// 每家开局的点数。账本里存的是净得失，界面上按日麻的习惯加上这个数显示。
+    static let startingPoints = 25_000
+
+    /// 现在手上的点数（净得失是 `scores`）。
+    func currentPoints(of player: Int) -> Int { Game.startingPoints + scores[player] }
+
     /// 「¥76」「−¥12.5」。
     func moneyText(_ points: Int) -> String {
         let value = money(forPoints: points)

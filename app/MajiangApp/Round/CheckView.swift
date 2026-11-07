@@ -48,7 +48,7 @@ struct CheckView: View {
     /// 每行 7 张，按页面宽度算牌的大小，最大 44。宽屏上内容收在中间一栏，按那一栏算。
     private var tileWidth: CGFloat {
         guard pageWidth > 0 else { return 44 }
-        return max(24, min(44, (min(pageWidth, Theme.columnWidth) - 48 - 6 * 6) / 7))
+        return max(24, min(44, (min(pageWidth, Theme.columnWidth) - 40 - 6 * 6) / 7))
     }
 
     var body: some View {
@@ -85,7 +85,7 @@ struct CheckView: View {
 
                 howWon
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 20)
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
@@ -182,7 +182,7 @@ struct CheckView: View {
         if flow.source == "手动输入" { return who + tr("手动输入", "手動入力", "Manual entry") }
         // 演示数据不看照片，一定要说清楚，不然会以为是认错了（截图模式除外）
         if flow.source == "演示" && DemoScreen.current == nil {
-            return tr("演示数据，没看你的照片 · 长按首页标题填 Key", "デモデータ（写真は未解析）", "Demo data (photo not analyzed)")
+            return tr("演示数据，没看你的照片 · 在「更多」里填 Key", "デモデータ（写真は未解析）", "Demo data (photo not analyzed)")
         }
         let count = who + tr("认出 \(flow.hand.allTiles.count) 张", "\(flow.hand.allTiles.count)枚を認識", "Recognized \(flow.hand.allTiles.count) tiles")
         if flow.isReviewing { return count }
@@ -410,7 +410,7 @@ struct CheckView: View {
             Text(title).font(.system(size: 17, weight: .semibold))
             reason
                 .font(.system(size: 15))
-                .foregroundStyle(Color(hex: 0x3A3934))
+                .foregroundStyle(Theme.ink)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 8)
@@ -428,8 +428,8 @@ struct CheckView: View {
                         .padding(.trailing, 18)
                         .frame(height: 44)
                         .foregroundStyle(.white)
-                        .background(Theme.ink, in: Capsule())
-                        .contentShape(Capsule())
+                        .background(Theme.indigo, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     Button("自己改") { editing = suggestion.index.map { .replace($0) } ?? .add }
@@ -557,6 +557,8 @@ struct CheckView: View {
                 }
             } label: {
                 HStack(spacing: 12) {
+                    RiichiStickIcon(width: 30, height: 7)
+                        .opacity(active ? 1 : 0.45)
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
                             Text(isDouble ? SpecialWin.doubleRiichi.name : SpecialWin.riichi.name).font(.system(size: 16))
@@ -564,7 +566,7 @@ struct CheckView: View {
                                 .font(.system(size: 14))
                                 .foregroundStyle(Theme.gray)
                         }
-                        if !model.isSeasoned {
+                        if !model.isSeasoned && !active {
                             Text(tr("门前清听牌后宣告立直", "門前清で聴牌しリーチを宣言", "Declared Riichi with a closed tenpai hand"))
                                 .font(.system(size: 14))
                                 .foregroundStyle(Theme.gray)
@@ -589,8 +591,8 @@ struct CheckView: View {
                         .foregroundStyle(isIppatsu ? .white : Theme.ink)
                         .padding(.horizontal, 10)
                         .frame(height: 28)
-                        .background(isIppatsu ? Theme.vermilion : Theme.lineSoft, in: Capsule())
-                        .contentShape(Capsule())
+                        .background(isIppatsu ? Theme.vermilion : Theme.lineSoft, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -605,8 +607,8 @@ struct CheckView: View {
                 }
             } label: {
                 ZStack {
-                    Circle().strokeBorder(Color(hex: 0xD6D2C7), lineWidth: 1.5).opacity(active ? 0 : 1)
-                    Circle().fill(Theme.ink).opacity(active ? 1 : 0)
+                    Circle().strokeBorder(Theme.faint, lineWidth: 1).opacity(active ? 0 : 1)
+                    Circle().fill(Theme.vermilion).opacity(active ? 1 : 0)
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.white)
@@ -688,8 +690,8 @@ struct CheckView: View {
                         }
                         Spacer()
                         ZStack {
-                            Circle().strokeBorder(Color(hex: 0xD6D2C7), lineWidth: 1.5).opacity(on ? 0 : 1)
-                            Circle().fill(Theme.ink).opacity(on ? 1 : 0)
+                            Circle().strokeBorder(Theme.faint, lineWidth: 1).opacity(on ? 0 : 1)
+                            Circle().fill(Theme.indigo).opacity(on ? 1 : 0)
                             Image(systemName: "checkmark")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(.white)
@@ -834,8 +836,8 @@ private struct QuestionCard: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 64)
-            .background(Color(hex: 0xFBFAF7), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.line))
+            .background(Theme.paper, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.line))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

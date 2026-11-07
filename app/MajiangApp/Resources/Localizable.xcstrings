@@ -2417,29 +2417,6 @@
         }
       }
     },
-    "拍一下，": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拍一下，"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "一撮りで、"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snap a photo,"
-          }
-        }
-      }
-    },
     "拍照": {
       "extractionState": "manual",
       "localizations": {
@@ -2482,52 +2459,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Double-checks every photo with cloud AI and lets you resolve any differences."
-          }
-        }
-      }
-    },
-    "拍照算番": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拍照算番"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "麻雀カメラ点数計算"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Riichi Photo Scorer"
-          }
-        }
-      }
-    },
-    "拍照算番 · 拍一下，番和钱都算好": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拍照算番 · 拍一下，番和钱都算好"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "麻雀カメラ点数計算 · 一撮りで役も点数もすぐ計算"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Riichi Photo Scorer · Snap to score & settle"
           }
         }
       }
@@ -3563,29 +3494,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tiles are right, actual Chombo? Record (%lld pts each) ›"
-          }
-        }
-      }
-    },
-    "番和钱都算好。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "番和钱都算好。"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "役も点数もすぐ計算。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "yaku & points done."
           }
         }
       }

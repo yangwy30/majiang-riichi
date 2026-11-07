@@ -1,7 +1,7 @@
 import SwiftUI
 import MajiangKit
 
-/// 牌背：墨绿，和桌上的真牌一样，没有图案。
+/// 牌背：藍色，没有图案。
 struct TileBack: View {
     var width: CGFloat = 44
 
@@ -11,10 +11,10 @@ struct TileBack: View {
     var body: some View {
         ZStack {
             shape
-                .fill(Color(hex: 0x1F3D2F))
+                .fill(Theme.tileBackDeep)
                 .offset(y: 1.5)
             shape
-                .fill(Theme.tileGreen)
+                .fill(Theme.tileBack)
             shape
                 .strokeBorder(.white.opacity(0.14), lineWidth: 1)
                 .padding(width * 0.09)

@@ -1,7 +1,12 @@
 import SwiftUI
 import MajiangKit
 
-/// 只有一条主线：首页 → 开局 → 牌桌（也是账本）→ 结算。记一局是从牌桌全屏弹出的。
+/// 四个 tab。
+enum AppTab: Hashable {
+    case game, history, guide, more
+}
+
+/// 从 tab 上推进来的页。没打完的牌局就在第一个 tab 上，记一局是从那里全屏弹出的。
 enum Route: Hashable {
     case newGame
     case table(UUID)
@@ -44,6 +49,7 @@ enum RecognitionMode: String, CaseIterable, Identifiable {
 final class AppModel {
     var archive: GameArchive
     var path: [Route] = []
+    var selectedTab: AppTab = .game
     var loadError: String?
 
     var recognitionMode: RecognitionMode {
@@ -134,16 +140,16 @@ final class AppModel {
         self.loadError = error
         // 存过旧的 workers.dev 地址（在开发设置里点过「用我们的服务器」）的，换成新地址
         if proxyURL == Self.legacyProxyURL { proxyURL = Self.defaultProxyURL }
-        // 有没打完的牌局时，打开 App 直接进牌桌
-        if let active = loaded.activeGame { path = [.table(active.id)] }
         switch demoScreen {
-        case .home, .emptyHome, .backup, .invite, .more: path = []
+        case .history: selectedTab = .history
+        case .guide: selectedTab = .guide
+        case .backup, .invite, .more: selectedTab = .more
         case .newGame, .houseRules, .rulePicker: path = [.newGame]
         case .settle: path = loaded.finishedGames.first.map { [.settle($0.id)] } ?? []
         case .handDetail, .handPhoto, .handDiscard:
             let i = demoScreen == .handDiscard ? 1 : 0
             if let game = loaded.activeGame, game.records.indices.contains(i) {
-                path = [.table(game.id), .hand(game.id, game.records[i].id)]
+                path = [.hand(game.id, game.records[i].id)]
             }
         default: break
         }
@@ -209,7 +215,7 @@ final class AppModel {
     /// 把全部记录写成一个文件，用来存到「文件」或隔空投送。
     func exportFile() throws -> URL {
         let stamp = Date().formatted(.iso8601.year().month().day().dateSeparator(.omitted))
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("拍照算番-全部牌局-\(stamp).json")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("日麻算番-全部牌局-\(stamp).json")
         try archive.exportData().write(to: url, options: .atomic)
         return url
     }

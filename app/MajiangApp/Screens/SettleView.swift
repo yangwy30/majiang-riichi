@@ -31,14 +31,15 @@ struct SettleView: View {
                     ForEach(Array(ranking.enumerated()), id: \.element) { place, player in
                         HStack(spacing: 16) {
                             Text("\(place + 1)")
-                                .font(Theme.serif(15))
-                                .foregroundStyle(Theme.gray)
-                                .frame(width: 14)
+                                .font(Theme.serif(14))
+                                .foregroundStyle(.white)
+                                .frame(width: 24, height: 24)
+                                .background(place == 0 ? Theme.vermilion : Theme.indigo, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                             Text(game.players[player].name).font(.system(size: 17, weight: .medium))
                             Spacer()
                             // 结算是拿来转钱的：大字写钱，1 分不是 1 元时旁边小字写分，跟下面的转账对得上
                             if game.rules.yuanPerPoint != 1 {
-                                Text("\(Theme.signed(scores[player])) 分")
+                                Text(tr("\(Theme.signed(scores[player])) 点", "\(Theme.signed(scores[player]))点", "\(Theme.signed(scores[player])) pts"))
                                     .font(.system(size: 14).monospacedDigit())
                                     .foregroundStyle(Theme.gray)
                             }
@@ -91,7 +92,7 @@ struct SettleView: View {
                         .padding(.top, 24)
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 20)
             .padding(.top, 8)
         }
         .bottomBar {
@@ -118,7 +119,7 @@ struct SettleView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden()
         .toolbar {
-            NavBack("首页") { model.path = [] }
+            NavBack(tr("返回", "戻る", "Back")) { model.path = [] }
         }
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 import MajiangKit
 
-/// 每个番种一行：名字、一句白话、几番。结果页和「这一局」共用。
+/// 每个役一行：名字、一句白话、几翻。结果页和「这一局」共用。
 struct FanList: View {
     var win: WinRecord
 
@@ -37,10 +37,10 @@ private struct FanRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            Text("\(points)").font(.system(size: 16).monospacedDigit())
+            Text(tr("\(points)翻", "\(points)翻", "\(points) han")).font(Theme.score(15))
         }
         .padding(.vertical, 11)
-        .overlay(alignment: .top) { Hairline() }
+        .overlay(alignment: .bottom) { Hairline(color: Theme.lineSoft) }
         .accessibilityElement(children: .combine)
     }
 }
@@ -58,7 +58,7 @@ struct DeltaGrid: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(game.players[i].name).font(.system(size: 14)).foregroundStyle(Theme.gray).lineLimit(1)
                         Text(Theme.signed(deltas[i]))
-                            .font(Theme.score(24))
+                            .font(Theme.score(20))
                             .foregroundStyle(Theme.scoreColor(deltas[i]))
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)

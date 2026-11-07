@@ -110,7 +110,7 @@ private struct PresetTabs: View {
             preset.yuanPerPoint = rules.yuanPerPoint
             rules = preset
         } label: {
-            Text(label)
+            Text(LocalizedStringKey(label))
                 .font(.system(size: 15, weight: on ? .medium : .regular))
                 .foregroundStyle(on ? Theme.ink : Theme.gray)
                 .padding(.vertical, 10)
@@ -149,8 +149,7 @@ private struct RuleRow: View {
                     Spacer(minLength: 8)
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(value.text)
-                            .font(large ? .system(size: value.isNumber ? 34 : 20, weight: standard ? .thin : .light)
-                                    .monospacedDigit()
+                            .font(large ? Theme.score(value.isNumber ? 28 : 18, weight: standard ? .regular : .semibold)
                                   : .system(size: 16, weight: standard ? .regular : .medium))
                         if !value.unit.isEmpty {
                             Text(value.unit).font(.system(size: 14))
@@ -236,8 +235,8 @@ private struct RulePicker: View {
         .foregroundStyle(Theme.ink)
         .presentationDetents([.height(height(options.count))])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(28)
-        .presentationBackground(Theme.white)
+        .presentationCornerRadius(16)
+        .presentationBackground(Theme.card)
         .onChange(of: customYuan) { _, text in
             if let value = Double(text.replacingOccurrences(of: ",", with: ".")), value > 0 {
                 rules.yuanPerPoint = value

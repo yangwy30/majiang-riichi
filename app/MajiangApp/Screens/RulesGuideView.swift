@@ -4,6 +4,8 @@ import MajiangKit
 /// 规则和役种说明：给打立直日麻的人看的白话速查表。
 struct RulesGuideView: View {
     @Environment(\.dismiss) private var dismiss
+    /// 在「役表」tab 里：不套导航栏，也没有关闭。
+    var embedded = false
 
     private var basics: [(String, String)] {
         [
@@ -37,55 +39,74 @@ struct RulesGuideView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(basics, id: \.0) { title, text in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(title).font(.system(size: 16, weight: .semibold))
-                            Text(text)
-                                .font(.system(size: 15))
+        if embedded {
+            list
+                .page()
+        } else {
+            NavigationStack {
+                list
+                    .page()
+                    .navigationTitle("立直规则与役种")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        NavClose("关闭") { dismiss() }
+                    }
+            }
+        }
+    }
+
+    private var list: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if embedded {
+                    PageTitle(title: tr("役表", "役一覧", "Yaku"), subtitle: nil)
+                }
+                ForEach(groups, id: \.points) { group in
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        if group.points == 13 {
+                            Text(tr("役满", "役満", "Yakuman")).font(Theme.serif(22, semibold: true))
+                        } else {
+                            Text("\(group.points)").font(Theme.score(24, weight: .semibold))
+                            Text(tr("翻", "翻", "han")).font(Theme.serif(15))
+                        }
+                    }
+                    .padding(.top, 24)
+                    .padding(.bottom, 4)
+                    Hairline()
+                    ForEach(group.fans, id: \.self) { fan in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(fan.name).font(.system(size: 16, weight: .medium))
+                            Text(fan.explanation)
+                                .font(.system(size: 14))
                                 .foregroundStyle(Theme.gray)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .padding(.vertical, 12)
-                    }
-
-                    ForEach(groups, id: \.points) { group in
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            if group.points == 13 {
-                                Text("役满").font(Theme.serif(24, semibold: true))
-                                Text("· 13 翻").font(.system(size: 15)).foregroundStyle(Theme.gray)
-                            } else {
-                                Text("\(group.points)").font(Theme.score(28))
-                                Text("翻").font(Theme.serif(15))
-                            }
-                        }
-                        .padding(.top, 28)
-                        .padding(.bottom, 4)
-                        ForEach(group.fans, id: \.self) { fan in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(fan.name).font(.system(size: 16, weight: .medium))
-                                Text(fan.explanation)
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(Theme.gray)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 11)
-                            .overlay(alignment: .top) { Hairline() }
-                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 10)
+                        .overlay(alignment: .bottom) { Hairline(color: Theme.lineSoft) }
                     }
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
+
+                let rulesTitle = tr("规则", "ルール", "Rules")
+                Text(rulesTitle)
+                    .font(Theme.heading(rulesTitle, size: 22))
+                    .padding(.top, 32)
+                    .padding(.bottom, 4)
+                Hairline()
+                ForEach(basics, id: \.0) { title, text in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title).font(.system(size: 16, weight: .semibold))
+                        Text(text)
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.gray)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.vertical, 12)
+                }
             }
-            .page()
-            .navigationTitle("立直规则与役种")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                NavClose("关闭") { dismiss() }
-            }
+            .padding(.horizontal, 20)
+            .padding(.top, embedded ? 20 : 0)
+            .padding(.bottom, 24)
         }
     }
 }

@@ -41,7 +41,7 @@ struct NewGameView: View {
                     ForEach(0..<4, id: \.self) { i in
                         HStack(spacing: 14) {
                             // 门风跟着第一局的庄走：庄是东，往下南、西、北
-                            Text(Wind(rawValue: (i - dealerRow + 4) % 4)!.name)
+                            Text(Theme.windGlyph(Wind(rawValue: (i - dealerRow + 4) % 4)!.name))
                                 .font(Theme.serif(15))
                                 .foregroundStyle(Theme.gray)
                                 .frame(width: 22, alignment: .leading)
@@ -57,7 +57,7 @@ struct NewGameView: View {
                         if i < 3 { Hairline(color: Theme.lineSoft) }
                     }
                 }
-                .block(radius: 22)
+                .block()
                 .padding(.top, 28)
 
                 SectionLabel("第一局谁坐庄")
@@ -103,7 +103,7 @@ struct NewGameView: View {
                     }
                     .padding(.vertical, 10)
                     .frame(minHeight: 56)
-                    .block(radius: 18)
+                    .block()
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -121,7 +121,7 @@ struct NewGameView: View {
         .page()
         .navigationBarBackButtonHidden()
         .toolbar {
-            NavBack("首页") { model.path.removeLast() }
+            NavBack(tr("返回", "戻る", "Back")) { model.path.removeLast() }
         }
         .sheet(isPresented: $editingRules) {
             RulesSheet(rules: $rules, opening: model.demoScreen == .rulePicker ? .cap : nil)
@@ -177,8 +177,9 @@ struct NewGameView: View {
         // 存的时候从第一局的庄开始排（东南西北），记下自己是第几个
         let seated = (0..<4).map { trimmed[(dealerRow + $0) % 4] }
         let players = seated.map { known[$0] ?? Player(name: $0) }
-        let game = model.startGame(players: players, me: (4 - dealerRow) % 4, rules: rules)
-        model.path = [.table(game.id)]
+        model.startGame(players: players, me: (4 - dealerRow) % 4, rules: rules)
+        model.selectedTab = .game
+        model.path = []
     }
 }
 

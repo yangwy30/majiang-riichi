@@ -14,72 +14,82 @@ struct ShareCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            standings.padding(.top, 22)
-            if game.isFinished {
-                transferList.padding(.top, 26)
-                if let line = game.biggestWinLine {
-                    Text(line)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.gray)
-                        .padding(.top, 18)
+            VStack(alignment: .leading, spacing: 0) {
+                standings
+                if game.isFinished {
+                    transferList.padding(.top, 24)
+                    if let line = game.biggestWinLine {
+                        Text(line)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.gray)
+                            .padding(.top, 18)
+                    }
+                } else {
+                    recent.padding(.top, 24)
                 }
-            } else {
-                recent.padding(.top, 26)
+                HStack(spacing: 8) {
+                    RiichiStickIcon(width: 24, height: 5)
+                    Text(tr("日麻算番 · 拍一下，翻符和点数都算好",
+                            "麻雀カメラ計算・撮るだけで翻符と点数を計算",
+                            "Riichi Scorer · Han, fu and points from a photo"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.gray)
+                }
+                .padding(.top, 24)
             }
-            Text("拍照算番 · 拍一下，番和钱都算好")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.faint)
-                .padding(.top, 26)
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            .padding(.bottom, 20)
         }
-        .padding(.horizontal, 28)
-        .padding(.top, 30)
-        .padding(.bottom, 24)
         .frame(width: 360, alignment: .leading)
         .background(Theme.paper)
         .foregroundStyle(Theme.ink)
+        // 发到群里的图不跟手机的深色模式走
+        .environment(\.colorScheme, .light)
     }
 
+    /// 藍色抬头：局况大字，日期和规则小字。
     private var header: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Text("和")
-                    .font(Theme.serif(14))
-                    .foregroundStyle(.white)
-                    .frame(width: 24, height: 24)
-                    .background(Theme.vermilion, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
                 Text(game.startedAt.dayLabel)
-                    .font(.system(size: 14, weight: .medium))
                 Spacer()
                 Text(game.rulesSummary)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.gray)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(game.isFinished ? tr("打完了", "対局終了", "Game Over") : tr("打到\(game.handLabel)", "\(game.handLabel) 進行中", "Now at \(game.handLabel)"))
-                    .font(.system(size: 26, weight: .semibold))
-                    .tracking(-0.3)
-                Text(game.isFinished
-                     ? tr("一共 \(game.playedHandsCount) 局", "全\(game.playedHandsCount)局", "\(game.playedHandsCount) hands total")
-                     : tr("打了 \(game.playedHandsCount) 局 · 还剩 \(game.remainingHands) 局",
-                          "\(game.playedHandsCount)局消化・残り\(game.remainingHands)局",
-                          "\(game.playedHandsCount) played · \(game.remainingHands) left"))
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.gray)
-            }
+            .font(.system(size: 12))
+            .foregroundStyle(.white.opacity(0.75))
+            let title = game.isFinished ? tr("终局", "対局終了", "Final") : (game.handLabel)
+            Text(title)
+                .font(Theme.heading(title, size: 26))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.top, 6)
+            Text(game.isFinished
+                 ? tr("一共 \(game.playedHandsCount) 局", "全\(game.playedHandsCount)局", "\(game.playedHandsCount) hands total")
+                 : tr("打了 \(game.playedHandsCount) 局 · 还剩 \(game.remainingHands) 局",
+                      "\(game.playedHandsCount)局消化・残り\(game.remainingHands)局",
+                      "\(game.playedHandsCount) played · \(game.remainingHands) left"))
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.75))
         }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .padding(.bottom, 20)
+        .background(Color(hex: 0x23395B))
     }
 
     private var standings: some View {
         VStack(spacing: 0) {
-            Hairline()
             ForEach(Array(ranking.enumerated()), id: \.element) { place, player in
                 HStack(spacing: 14) {
                     Text("\(place + 1)")
-                        .font(Theme.serif(14))
-                        .foregroundStyle(Theme.gray)
-                        .frame(width: 12)
+                        .font(Theme.serif(13))
+                        .foregroundStyle(.white)
+                        .frame(width: 22, height: 22)
+                        .background(place == 0 ? Theme.vermilion : Color(hex: 0x23395B), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                     Text(game.players[player].name)
                         .font(.system(size: 17, weight: .medium))
                         .lineLimit(1)
@@ -88,9 +98,10 @@ struct ShareCard: View {
                         .font(.system(size: 13).monospacedDigit())
                         .foregroundStyle(Theme.gray)
                     Text(Theme.signed(scores[player]))
-                        .font(Theme.score(26))
+                        .font(Theme.score(20))
                         .foregroundStyle(Theme.scoreColor(scores[player]))
-                        .frame(minWidth: 64, alignment: .trailing)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 .frame(height: 54)
                 Hairline()
@@ -148,7 +159,7 @@ struct ShareCard: View {
                     Spacer(minLength: 6)
                     if let value = record.headline {
                         Text(Theme.signed(value))
-                            .font(.system(size: 15).monospacedDigit())
+                            .font(Theme.score(15))
                             .foregroundStyle(Theme.scoreColor(value))
                     }
                 }
@@ -176,22 +187,28 @@ extension Game {
     var shareText: String {
         let scores = self.scores
         var lines = [isFinished
-                     ? "立直日麻 \(startedAt.dayLabel) · 打完了，一共 \(playedHandsCount) 局"
-                     : "立直日麻 \(startedAt.dayLabel) · 打到\(handLabel)（打了 \(playedHandsCount) 局）"]
+                     ? tr("日麻算番 \(startedAt.dayLabel) · 打完了，一共 \(playedHandsCount) 局",
+                          "麻雀カメラ計算 \(startedAt.dayLabel)・対局終了（全\(playedHandsCount)局）",
+                          "Riichi Scorer \(startedAt.dayLabel) · Final, \(playedHandsCount) hands")
+                     : tr("日麻算番 \(startedAt.dayLabel) · 打到\(handLabel)（打了 \(playedHandsCount) 局）",
+                          "麻雀カメラ計算 \(startedAt.dayLabel)・\(handLabel)（\(playedHandsCount)局消化）",
+                          "Riichi Scorer \(startedAt.dayLabel) · \(handLabel) (\(playedHandsCount) played)")]
         for player in Settlement.ranking(scores: scores) {
-            lines.append("\(players[player].name) \(Theme.signed(scores[player])) 点（\(moneyText(scores[player]))）")
+            lines.append("\(players[player].name) " + tr("\(Theme.signed(scores[player])) 点（\(moneyText(scores[player]))）",
+                                                         "\(Theme.signed(scores[player]))点（\(moneyText(scores[player]))）",
+                                                         "\(Theme.signed(scores[player])) pts (\(moneyText(scores[player])))"))
         }
         if isFinished {
             let transfers = Settlement.minimalTransfers(scores: scores)
             if !transfers.isEmpty {
-                lines.append("这样转账最省事：")
+                lines.append(tr("这样转账最省事：", "精算：", "Settle up:"))
                 for t in transfers {
                     lines.append("\(players[t.from].name) → \(players[t.to].name) \(moneyText(t.points))")
                 }
             }
             if let line = biggestWinLine { lines.append(line) }
         } else if let last = records.last {
-            lines.append("上一局：\(last.title(in: self))")
+            lines.append(tr("上一局：", "前局：", "Last hand: ") + last.title(in: self))
         }
         return lines.joined(separator: "\n")
     }

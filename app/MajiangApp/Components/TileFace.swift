@@ -244,7 +244,7 @@ private struct HonorFace: View {
         switch tile.rank {
         case 5: Theme.tileRed
         case 6: Theme.tileGreen
-        default: Theme.ink
+        default: Theme.tileInk
         }
     }
 }

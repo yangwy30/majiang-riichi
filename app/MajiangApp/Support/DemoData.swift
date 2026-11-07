@@ -5,12 +5,12 @@ import MajiangKit
 /// 数据存在临时目录，不会碰真的牌局记录。只在开发版里有。
 enum DemoScreen: String {
     case emptyHome = "empty-home"
-    case home, newGame = "new-game", table, draw, editHand = "edit-hand", capture, check, checkReady = "check-ready", notWin = "not-win", result, settle
+    case home, history, guide, newGame = "new-game", table, draw, editHand = "edit-hand", capture, check, checkReady = "check-ready", notWin = "not-win", result, settle
     /// 双读：端侧结果已显示、Gemini 还在复核；复核完、有一张两边读得不一样和一张只有一边读到。
     case reviewing = "check-reviewing", dualRead = "check-dual"
     /// 发到群里的账本图：打完的结算 / 没打完的牌局；备份与换手机页。
     case shareSettle = "share-settle", shareLive = "share-live", backup
-    /// 首页上打开填邀请码的页；首页右上「更多」升起的那一页。
+    /// 「更多」tab 上打开填邀请码的页；「更多」tab。
     case invite, more
     /// 家规：开局页的规则表单、点开一项的选项；牌桌上打到一半改这场的规则（预览底分改成 5）、
     /// 带家规的牌桌、封顶起作用的结果页、带家规的账本图。
@@ -123,7 +123,7 @@ enum DemoData {
                 TileRow(tiles: hand.allTiles, width: 60)
                     .padding(.horizontal, 60)
                     .frame(width: 1200, height: 900)
-                    .background(Color(hex: 0xC9796B)))
+                    .background(Color(hex: 0x2F5D46)))
             renderer.scale = 1
             image = renderer.uiImage
         }
