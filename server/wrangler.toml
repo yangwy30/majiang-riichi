@@ -1,0 +1,43 @@
+# 日麻算番的认牌中转站（Cloudflare Worker）。部署和改配置见 server/README.md。
+# 从国标版（majiang-ppc/server）复制出来的独立 Worker：名字、域名、Durable Object 都是自己的，
+# 所以邀请码、次数、管理密码和国标版完全分开，部署这个不会动到国标版。
+name = "majiang-riichi-relay"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+# 只用自己的域名（中国大陆大多连不上 workers.dev）
+workers_dev = false
+routes = [{ pattern = "riichi.acrossus.app", custom_domain = true }]
+
+[vars]
+# 用哪个模型，只能是 Flash / Flash-Lite（代码里会拦 Pro）。改完 `npm run deploy` 生效，App 不用更新。
+MODEL = "gemini-3.8-flash"
+# 思考深度：low 比默认快约 3 倍（每张第一次调用平均 7 秒），33 张里 30 张全对（默认 32 张）。
+# 留空用模型默认；3.8 Flash 不支持 minimal；换成 2.5 系列模型时要留空。
+THINKING_LEVEL = "low"
+# 每台手机每分钟、每天最多几次；同一个 IP 每天；所有人加起来每天（防止账单失控，新 App 用的人少，先 1000）。按 UTC 日期算。
+DEVICE_PER_MINUTE = "10"
+DEVICE_DAILY_LIMIT = "150"
+IP_DAILY_LIMIT = "500"
+GLOBAL_DAILY_LIMIT = "1000"
+MAX_BODY_BYTES = "8000000"
+# 邀请码（在 /admin 网页上生成、停用）。没码能不能用 AI 认牌：日麻 App 从第一版就有填码的地方，所以一开始就要码
+# （网页上拨过就以网页为准，这里只是没拨过时的默认值）。
+INVITE_REQUIRED = "true"
+# 每个码默认最多绑几台手机、每天最多几次（生成码时可以单独改）
+CODE_DEVICE_LIMIT = "2"
+CODE_DAILY_LIMIT = "50"
+# 同一个 IP 或同一台手机每天最多输错几次邀请码，防猜码
+INVITE_TRIES_PER_DAY = "20"
+# 计数和转发放在北美西部，避开 Gemini 不支持的地区（比如香港机房）
+LOCATION_HINT = "wnam"
+
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "Relay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Relay"]
+
+[observability]
+enabled = true

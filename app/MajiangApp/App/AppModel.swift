@@ -74,9 +74,13 @@ final class AppModel {
         didSet { UserDefaults.standard.set(proxyURL, forKey: "proxyURL") }
     }
 
-    /// 中转站地址。1.0 用的是 workers.dev，中国大陆大多连不上，1.0.1 起换成自己的域名（同一个 Worker，旧地址也还在）。
-    static let defaultProxyURL = "https://majiang.acrossus.app/recognize"
-    static let legacyProxyURL = "https://majiang-relay.yangwang9710.workers.dev/recognize"
+    /// 中转站地址：日麻自己的 Worker（仓库里的 server/），邀请码和次数跟国标版分开。
+    static let defaultProxyURL = "https://riichi.acrossus.app/recognize"
+    /// 从国标版复制过来时用的是国标版的中转站，开发设置里存过这些地址的换成自己的。
+    static let guobiaoProxyURLs: Set<String> = [
+        "https://majiang.acrossus.app/recognize",
+        "https://majiang-relay.yangwang9710.workers.dev/recognize",
+    ]
 
     /// AI 认牌的邀请码（中转站确认过才存）。走中转站时没码就不调 Gemini，只用端侧认牌。
     private(set) var inviteCode: String? = InviteKeychain.read()
@@ -132,8 +136,8 @@ final class AppModel {
         self.proxyURL = UserDefaults.standard.string(forKey: "proxyURL") ?? Self.defaultProxyURL
         #endif
         self.loadError = error
-        // 存过旧的 workers.dev 地址（在开发设置里点过「用我们的服务器」）的，换成新地址
-        if proxyURL == Self.legacyProxyURL { proxyURL = Self.defaultProxyURL }
+        // 存过国标版中转站地址（在开发设置里点过「用我们的服务器」）的，换成日麻自己的
+        if Self.guobiaoProxyURLs.contains(proxyURL) { proxyURL = Self.defaultProxyURL }
         // 有没打完的牌局时，打开 App 直接进牌桌
         if let active = loaded.activeGame { path = [.table(active.id)] }
         switch demoScreen {
