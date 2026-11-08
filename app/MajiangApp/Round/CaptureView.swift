@@ -143,13 +143,18 @@ struct CaptureView: View {
     /// 取景提示：一句话、一排示意牌立在胡桃木牌架上，两头标着 1 和 14。
     private var rackGuide: some View {
         VStack(spacing: 14) {
-            Text(cameraOn || model.effectiveRecognitionMode == .demo || model.demoScreen != nil
-                 ? tr("把 14 张牌摆在牌架上，和的那张放最右", "14枚を牌架に並べ、和了牌を一番右に", "Line up all 14 tiles on the rack, winning tile on the right")
-                 : tr("这台设备没有相机，从左下角的相册选一张", "カメラがありません。左下のアルバムから選んでください", "No camera here. Pick a photo from the album"))
-                .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.9))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
+            VStack(spacing: 4) {
+                Text(cameraOn || model.effectiveRecognitionMode == .demo || model.demoScreen != nil
+                     ? tr("把 14 张牌摆上牌架", "14枚を牌架に並べる", "Line up all 14 tiles on the rack")
+                     : tr("这台设备没有相机，从左下角的相册选一张", "カメラがありません。左下のアルバムから選んでください", "No camera here. Pick a photo from the album"))
+                    .font(.system(size: 15, weight: .medium))
+                Text(tr("和的那张可以单独放右边", "和了牌は右に離して置いてもOK", "You can set the winning tile apart on the right"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.65))
+            }
+            .foregroundStyle(.white.opacity(0.92))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 24)
             VStack(spacing: 0) {
                 ViewThatFits(in: .horizontal) {
                     sampleHand(tileWidth: 20)

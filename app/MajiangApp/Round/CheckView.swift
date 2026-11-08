@@ -97,6 +97,8 @@ struct CheckView: View {
         .onAppear {
             if model.demoScreen == .doraSheet { countingDora = true }
         }
+        // 换了牌以后，原来选的和牌不能和了，就挑一张最可能的
+        .onChange(of: flow.tiles.map(\.tile), initial: true) { _, _ in flow.settleWinningTile() }
         .task {
             // 等页面淡入再摆牌（onAppear 里直接改，第一帧还没画，看不到动画）
             flipStart = Date().addingTimeInterval(reduceMotion ? 0 : 1.3)
@@ -251,29 +253,42 @@ struct CheckView: View {
         }
     }
 
-    /// 一条绿毡，牌一张张摆上去（从左往右推进来，像发牌），和的那张单独放在最右。
+    /// 和的是哪张会影响翻符时才问：那几张亮着，别的暗一点，点一下选；翻符都一样就不问。
+    private var askingWinningTile: Bool {
+        !flow.isReviewing && flow.firstPending == nil && flow.winningTileMatters
+    }
+
+    /// 一条绿毡，牌一张张摆上去（从左往右推进来，像发牌）。不要求和的那张放最右。
     private var feltStrip: some View {
         FeltBanner {
             VStack(spacing: 12) {
                 let width = stripTileWidth
+                let asking = askingWinningTile
+                let candidates = Set(flow.winningCandidates.map { flow.tiles[$0.index].tile })
                 HStack(alignment: .bottom, spacing: 2) {
                     ForEach(Array(flow.tiles.enumerated()), id: \.element.id) { index, tile in
-                        if index == winningIndex && index == flow.tiles.count - 1 && flow.tiles.count > 1 {
-                            Color.clear.frame(width: width * 0.45, height: 1)
-                        }
+                        let isCandidate = candidates.contains(tile.tile)
                         Button {
-                            actionTile = index
+                            // 问和的是哪张时，点亮着的牌就是选它；点已经选中的那张才是换牌
+                            if asking && isCandidate && index != winningIndex {
+                                flow.winningIndex = index
+                            } else {
+                                actionTile = index
+                            }
                         } label: {
                             FlippingTile(index: index, width: width, active: flow.isReviewing, start: flipStart) {
                                 TileFace(tile: tile.tile, width: width,
                                          state: tile.needsReview ? .doubt : index == suspect ? .wrong : .normal)
                             }
                             .overlay(alignment: .bottom) {
-                                if index == winningIndex {
+                                if asking && index == winningIndex {
                                     Capsule().fill(.white).frame(width: width * 0.5, height: 3).offset(y: 8)
                                         .accessibilityLabel("和的那张")
                                 }
                             }
+                            .opacity(asking && !isCandidate ? 0.45 : 1)
+                            .offset(y: asking && index == winningIndex ? -4 : 0)
+                            .animation(.snappy(duration: 0.2), value: winningIndex)
                         }
                         .buttonStyle(.plain)
                         .disabled(flow.isReviewing)
@@ -339,7 +354,10 @@ struct CheckView: View {
     private var stripHint: String {
         if flow.isReviewing { return tr("每张再认一遍，几秒就好", "もう一度読み取り中…", "Double-checking each tile…") }
         if flow.firstPending != nil { return tr("点一张牌就能换 · 红框那张看不太清", "タップで差し替え・赤枠は不鮮明", "Tap a tile to swap · red frame = unclear") }
-        return tr("点一张牌就能换 · 最右边是和的那张", "タップで差し替え・右端が和了牌", "Tap a tile to swap · rightmost is the winning tile")
+        if askingWinningTile {
+            return tr("和的是哪张？亮着的几张算出来不一样，点一下", "和了牌はどれ？明るい牌で点数が変わります", "Which tile won? The lit tiles score differently")
+        }
+        return tr("点一张牌就能换", "タップで差し替え", "Tap a tile to swap")
     }
 
     /// 识别时的说明（画面里有别的牌没算、副露两边读得不一样、Gemini 没复核上……）。
