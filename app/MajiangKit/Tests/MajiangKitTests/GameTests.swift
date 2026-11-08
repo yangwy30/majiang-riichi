@@ -37,8 +37,49 @@ final class GameTests: XCTestCase {
             Payment.winDeltas(winner: 2, discarder: nil, dealer: 0, totalFan: 3, fu: 30),
             [-2000, -1000, 4000, -1000]
         )
-        // 错和罚符：赔三家各 3000 点
-        XCTAssertEqual(Payment.falseWinDeltas(offender: 3, penalty: 3000), [3000, 3000, 3000, -9000])
+        // 错和罚满贯：闲家 3 错和，庄家 0 收 4000、另外两家各 2000
+        XCTAssertEqual(Payment.falseWinDeltas(offender: 3, dealer: 0), [4000, 2000, 2000, -8000])
+    }
+
+    func testChomboIsManganPenalty() {
+        // 闲家错和：付庄家 4000、另外两家闲家各 2000
+        XCTAssertEqual(Payment.falseWinDeltas(offender: 2, dealer: 0), [4000, 2000, -8000, 2000])
+        XCTAssertEqual(Payment.falseWinDeltas(offender: 0, dealer: 1), [-8000, 4000, 2000, 2000])
+        // 庄家错和：付三家各 4000
+        XCTAssertEqual(Payment.falseWinDeltas(offender: 1, dealer: 1), [4000, -12000, 4000, 4000])
+        XCTAssertEqual(Payment.falseWinDeltas(offender: 0, dealer: 0).reduce(0, +), 0)
+    }
+
+    func testOldRulesWithChomboPenaltyStillDecode() throws {
+        // 以前存的规则里有「错和每家赔多少」，现在固定罚满贯，旧字段直接忽略
+        let json = #"{"falseWinPenalty": 3000, "totalHands": 4}"#.data(using: .utf8)!
+        let rules = try JSONDecoder().decode(GameRules.self, from: json)
+        XCTAssertEqual(rules.totalHands, 4)
+    }
+
+    func testChomboReplaysTheHandWithSameDealerHonbaAndSticks() throws {
+        var game = Game(players: ["A", "B", "C", "D"].map { Player(name: $0) })
+        // 流局：庄家 0 听牌连庄，1 立直（1000 点留在桌上）→ 东 1 局 1 本场，供托 1000
+        try game.recordDraw(tenpai: [0, 1], riichi: [1])
+        XCTAssertEqual(game.currentHonba, 1)
+        XCTAssertEqual(game.currentPot, 1000)
+        let before = game.scores
+
+        // 庄家 0 错和：付三家各 4000，这一局重打
+        try game.recordFalseWin(offender: 0)
+        XCTAssertEqual(game.currentHandIndex, 0, "同一局重打")
+        XCTAssertEqual(game.dealer, 0, "还是同一个庄")
+        XCTAssertEqual(game.currentHonba, 1, "本场数不变")
+        XCTAssertEqual(game.currentPot, 1000, "桌上的立直棒原样留着")
+        XCTAssertEqual(zip(game.scores, before).map { $0 - $1 }, [-12000, 4000, 4000, 4000])
+
+        // 闲家 2 错和：付庄家 0 4000、另外两家各 2000
+        try game.recordFalseWin(offender: 2)
+        XCTAssertEqual(game.records.last?.deltas, [4000, 2000, -8000, 2000])
+        XCTAssertEqual(game.currentHandIndex, 0)
+        XCTAssertEqual(game.currentHonba, 1)
+        XCTAssertEqual(game.currentPot, 1000)
+        XCTAssertEqual(game.scores.reduce(0, +) + game.currentPot, 0, "点数加上桌上的立直棒总和不变")
     }
 
     func testKiriageManganAndFanCap() {
@@ -157,13 +198,13 @@ final class GameTests: XCTestCase {
         XCTAssertEqual(game.currentHonba, 0, "闲家和牌后本场归零")
         XCTAssertEqual(game.dealer, 1)
 
-        // 错和（3 赔三家各 3000）
+        // 错和（闲家 3 罚满贯：付庄家 1 4000、另外两家各 2000）
         try game.recordFalseWin(offender: 3)
         XCTAssertEqual(game.currentHandIndex, 1, "错和不推进局数")
         XCTAssertEqual(game.playedHandsCount, 2)
-        XCTAssertEqual(game.scores, [12000 + 3000, -4000 - 8300 + 3000, -4000 + 8300 + 3000, -4000 - 9000])
+        XCTAssertEqual(game.scores, [12000 + 2000, -4000 - 8300 + 4000, -4000 + 8300 + 2000, -4000 - 8000])
         XCTAssertEqual(game.scores.reduce(0, +), 0)
-        XCTAssertEqual(game.money(forPoints: game.scores[0]), 15)
+        XCTAssertEqual(game.money(forPoints: game.scores[0]), 14)
         XCTAssertEqual(game.biggestWin?.win.winner, 0)
 
         game.undoLast()

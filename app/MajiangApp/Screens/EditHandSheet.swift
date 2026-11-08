@@ -319,9 +319,7 @@ struct EditHandSheet: View {
             .padding(.top, 28)
             .padding(.bottom, 10)
         chips(selected: offender) { offender = $0 }
-        note(tr("赔另外三家各 \(game.rules.falseWinPenalty) 点，不算一局。",
-                "他3家に各 \(game.rules.falseWinPenalty) 点支払い、局は進みません。",
-                "Pays \(game.rules.falseWinPenalty) pts to each other player; hand replays."))
+        note(game.chomboLine())
     }
 
     // MARK: 小部件

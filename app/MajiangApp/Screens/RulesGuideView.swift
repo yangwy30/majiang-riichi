@@ -25,10 +25,10 @@ struct RulesGuideView: View {
              tr("立直、一发、门前清自摸和、平和、一杯口、二杯口、七对子只能在门前清（没吃、没碰、没明杠）时成立；三色同顺、一气通贯、混全带幺九、纯全带幺九、混一色、清一色在吃碰明杠后减 1 翻。",
                 "リーチ・一発・門前清自摸和・平和・一盃口・二盃口・七対子は門前清（鳴きなし）限定です。三色同順・一気通貫・チャンタ・純チャン・混一色・清一色は鳴くと1翻下がります。",
                 "Riichi, Ippatsu, Menzen Tsumo, Pinfu, Iipeiko, Ryanpeiko, and Chiitoitsu require a closed hand. Sanshoku, Ittsuu, Chanta, Junchan, Honitsu, and Chinitsu lose 1 han when open.")),
-            (tr("错和罚符", "チョンボ（錯和）罰符", "Chombo (False Win Penalty)"),
-             tr("推倒了却无役或凑不成和牌，赔另外三家各 3000 点，这一局接着打。",
-                "誤って手牌を倒した（役なし・不聴など）場合、他家3人に各3000点を支払い、その局をやり直します。",
-                "Declaring an invalid win (no yaku or incomplete hand) costs 3,000 pts to each of the other 3 players, and the hand is replayed.")),
+            (tr("错和罚满贯", "チョンボは満貫払い", "Chombo: Mangan Penalty"),
+             tr("推倒了却无役或凑不成和牌，按满贯反过来付：闲家付庄家 4,000、另外两家各 2,000；庄家付三家各 4,000。这一局重打，庄家、本场不变，桌上的立直棒留着。",
+                "誤って手牌を倒した（役なし・不聴など）場合は満貫払い：子は親に4,000・子に各2,000、親は3人に各4,000。同じ局をやり直し、親・本場・供託はそのまま。",
+                "An invalid win (no yaku or incomplete hand) pays a mangan: a non-dealer pays the dealer 4,000 and the others 2,000 each; the dealer pays 4,000 to each. The hand is replayed with the same dealer, honba and riichi sticks.")),
         ]
     }
 

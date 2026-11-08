@@ -139,7 +139,7 @@ struct CheckView: View {
         .confirmationDialog(flow.winnerChosen ? "\(winnerName)和错了？" : "谁和错了？",
                             isPresented: $confirmFalseWin, titleVisibility: .visible) {
             if flow.winnerChosen {
-                Button(tr("记下：赔三家各 \(game.rules.falseWinPenalty) 点", "記録：他家に各 \(game.rules.falseWinPenalty) 点", "Record: pay \(game.rules.falseWinPenalty) pts each"), role: .destructive) {
+                Button(tr("记下：罚满贯", "記録：満貫払い", "Record: mangan penalty"), role: .destructive) {
                     finish(.falseWin(offender: flow.winner))
                 }
             } else {
@@ -492,8 +492,8 @@ struct CheckView: View {
             confirmFalseWin = true
         } label: {
             Text(flow.tiles.isEmpty
-                 ? tr("其实是和错了？记下来（赔三家各 \(game.rules.falseWinPenalty) 点）›", "実はチョンボ？記録する（他家に各 \(game.rules.falseWinPenalty) 点）›", "Actually a false win? Record it (\(game.rules.falseWinPenalty) pts to each) ›")
-                 : tr("牌没认错，是真的和错了？记下来（赔三家各 \(game.rules.falseWinPenalty) 点）›", "牌は正しく、本当にチョンボ？記録する（他家に各 \(game.rules.falseWinPenalty) 点）›", "Tiles are right but it's a false win? Record it (\(game.rules.falseWinPenalty) pts to each) ›"))
+                 ? tr("其实是和错了？记下来（罚满贯）›", "実はチョンボ？記録する（満貫払い）›", "Actually a false win? Record it (mangan penalty) ›")
+                 : tr("牌没认错，是真的和错了？记下来（罚满贯）›", "牌は正しく、本当にチョンボ？記録する（満貫払い）›", "Tiles are right but it's a false win? Record it (mangan penalty) ›"))
                 .font(.system(size: 13))
                 .foregroundStyle(onFelt ? .white.opacity(0.7) : Theme.gray)
                 .multilineTextAlignment(.leading)

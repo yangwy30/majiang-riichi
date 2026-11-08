@@ -86,7 +86,7 @@ struct TableView: View {
                 Button(game.players[i].name) { record { try $0.recordFalseWin(offender: i) } }
             }
         } message: {
-            Text(tr("推倒了却凑不成和牌：赔另外三家各 \(game.rules.falseWinPenalty) 点，这一局接着打。", "誤ロン・誤ツモ：他家3人に各 \(game.rules.falseWinPenalty) 点を支払い、同じ局をやり直します。", "False win: pays \(game.rules.falseWinPenalty) pts to each of the other three; the hand is replayed."))
+            Text(game.chomboLine())
         }
         .sheet(item: $editing) { target in
             EditHandSheet(game: game, record: target.record, number: target.number) { outcome in

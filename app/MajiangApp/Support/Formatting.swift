@@ -119,6 +119,24 @@ extension Game {
         return mode + tr(" · ", "・", " · ") + rest
     }
 
+    /// 错和怎么赔（罚满贯）。知道是谁和错了就按庄闲说具体数，不知道就两种都说。
+    func chomboLine(offender: Int? = nil) -> String {
+        guard let offender, (0..<4).contains(offender) else {
+            return tr("罚满贯：闲家付庄家 4,000、另外两家各 2,000；庄家付三家各 4,000。这一局重打。",
+                      "満貫払い：子は親に4,000・子に各2,000、親は3人に各4,000。同じ局をやり直します。",
+                      "Mangan penalty: a non-dealer pays the dealer 4,000 and the others 2,000 each; the dealer pays 4,000 to each. The hand is replayed.")
+        }
+        let name = players[offender].name
+        if offender == dealer {
+            return tr("\(name)是庄家：付三家各 4,000 点，这一局重打。",
+                      "\(name)は親：3人に各4,000点、同じ局をやり直し。",
+                      "\(name) is the dealer: pays 4,000 to each; the hand is replayed.")
+        }
+        return tr("\(name)付庄家 4,000、另外两家各 2,000 点，这一局重打。",
+                  "\(name)は親に4,000・子に各2,000点、同じ局をやり直し。",
+                  "\(name) pays the dealer 4,000 and the others 2,000 each; the hand is replayed.")
+    }
+
     /// 「¥76」「−¥12.5」。
     func moneyText(_ points: Int) -> String {
         let value = money(forPoints: points)
@@ -266,9 +284,6 @@ extension GameRules {
         }
         if !includeDora {
             parts.append(tr("不计宝牌", "ドラなし", "No Dora"))
-        }
-        if falseWinPenalty != standard.falseWinPenalty {
-            parts.append(tr("错和赔 \(falseWinPenalty)", "チョンボ各\(falseWinPenalty)点", "Chombo \(falseWinPenalty)"))
         }
         if swapSeatsEachRound {
             parts.append(tr("每圈换座", "場風ごと席替え", "Swap Seats"))

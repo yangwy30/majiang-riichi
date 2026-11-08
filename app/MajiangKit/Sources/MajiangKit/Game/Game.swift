@@ -24,8 +24,6 @@ public struct GameRules: Hashable, Codable, Sendable {
     public var kiriageMangan: Bool = false
     /// 每圈换座；朋友局一般不换。
     public var swapSeatsEachRound: Bool = false
-    /// 错和罚符：赔另外三家各多少点（默认各 3000 点，共 9000 点）。
-    public var falseWinPenalty: Int = 3000
     /// 一场几局（默认半庄战 8 局 = 东四局 + 南四局；东风战为 4 局）。
     public var totalHands: Int = 8
     /// 封顶：一把最多按几翻算（含宝牌），0 为不封顶（13 翻以上累计役满）。
@@ -79,7 +77,7 @@ public struct GameRules: Hashable, Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case yuanPerPoint, basePoints, minimumFan, includeDora, kiriageMangan
-        case swapSeatsEachRound, falseWinPenalty, totalHands, fanCap, allowKuitan, uma, onlyDiscarderPays
+        case swapSeatsEachRound, totalHands, fanCap, allowKuitan, uma, onlyDiscarderPays
         case tobi, startingPoints, oka, returnPoints
     }
 
@@ -97,7 +95,6 @@ public struct GameRules: Hashable, Codable, Sendable {
             ?? decoder.container(keyedBy: LegacyKeys.self).decodeIfPresent(Bool.self, forKey: .includeFlowers) ?? d.includeDora
         kiriageMangan = try c.decodeIfPresent(Bool.self, forKey: .kiriageMangan) ?? d.kiriageMangan
         swapSeatsEachRound = try c.decodeIfPresent(Bool.self, forKey: .swapSeatsEachRound) ?? d.swapSeatsEachRound
-        falseWinPenalty = try c.decodeIfPresent(Int.self, forKey: .falseWinPenalty) ?? d.falseWinPenalty
         totalHands = try c.decodeIfPresent(Int.self, forKey: .totalHands) ?? d.totalHands
         fanCap = try c.decodeIfPresent(Int.self, forKey: .fanCap) ?? d.fanCap
         allowKuitan = try c.decodeIfPresent(Bool.self, forKey: .allowKuitan) ?? d.allowKuitan
@@ -805,7 +802,7 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
         case .abortive(_, let riichi):
             return (0..<4).map { riichi.contains($0) ? -1000 : 0 }
         case .falseWin(let offender):
-            return Payment.falseWinDeltas(offender: offender, penalty: rules.falseWinPenalty)
+            return Payment.falseWinDeltas(offender: offender, dealer: dealer(ofHand: handIndex))
         case .manual(let deltas, _):
             return deltas
         }
@@ -966,8 +963,17 @@ public enum Payment {
         return deltas
     }
 
-    /// 错和罚符：赔另外三家各 `penalty` 点。
-    public static func falseWinDeltas(offender: Int, penalty: Int) -> [Int] {
-        (0..<4).map { $0 == offender ? -3 * penalty : penalty }
+    /// 错和（チョンボ）罚满贯，按满贯自摸的付法反过来付：
+    /// 闲家错和付庄家 4000、另外两家闲家各 2000（共 8000）；庄家错和付三家各 4000（共 12000）。
+    /// 这一局重打：同一个庄、本场数不变，桌上的立直棒原样留着（错和这一局不收立直棒），见 `nextProgression`。
+    public static func falseWinDeltas(offender: Int, dealer: Int) -> [Int] {
+        guard (0..<4).contains(offender) else { return [0, 0, 0, 0] }
+        let offenderIsDealer = offender == dealer
+        var deltas = (0..<4).map { player -> Int in
+            if player == offender { return 0 }
+            return offenderIsDealer || player == dealer ? 4000 : 2000
+        }
+        deltas[offender] = -deltas.reduce(0, +)
+        return deltas
     }
 }
