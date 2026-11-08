@@ -13,6 +13,7 @@ struct CheckView: View {
     @State private var actionMeld: Int?
     @State private var confirmFalseWin = false
     @State private var rareOpen = false
+    @State private var countingDora = false
     /// 牌一张张落进格子里（从拍照页升上来时）。
     @State private var landed = false
     /// 再认一遍时牌从这个时刻开始翻，等落定以后。
@@ -385,13 +386,13 @@ struct CheckView: View {
         var reason: Text
         switch flow.scoring {
         case .success(let result):
-            title = result.fanWithoutFlowers == 0
+            title = result.fanWithoutDora == 0
                 ? tr("无役，立直麻将至少要有 \(minimum) 翻役才能和",
                      "役なし（和了には最低 \(minimum) 翻の役が必要です）",
                      "No Yaku (at least \(minimum) han of yaku required)")
-                : tr("只有 \(result.fanWithoutFlowers) 翻役，本场要 \(minimum) 翻才能和",
-                     "役が \(result.fanWithoutFlowers) 翻のみ（この対局は \(minimum) 翻縛り）",
-                     "Only \(result.fanWithoutFlowers) han of yaku (\(minimum)-han minimum)")
+                : tr("只有 \(result.fanWithoutDora) 翻役，本场要 \(minimum) 翻才能和",
+                     "役が \(result.fanWithoutDora) 翻のみ（この対局は \(minimum) 翻縛り）",
+                     "Only \(result.fanWithoutDora) han of yaku (\(minimum)-han minimum)")
             reason = Text("牌型没问题。如果这手立直了，在下面点一下「立直」；宝牌每张加 1 翻，但不算进起和役。")
         case .failure(.wrongTileCount):
             reason = Text("和牌一共 14 张（每个杠多 1 张），现在是 \(flow.hand.allTiles.count) 张。")
@@ -598,7 +599,7 @@ struct CheckView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                if game.rules.includeFlowers { dora }
+                if game.rules.includeDora { dora }
             }
         }
         .padding(16)
@@ -637,21 +638,27 @@ struct CheckView: View {
             .overlay(Capsule().strokeBorder(.white.opacity(on ? 0 : 0.7), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
     }
 
-    /// 宝牌：一张红五做标记，下面加减。立直和牌的时候提醒翻里宝牌。
+    /// 宝牌：点牌面打开「翻指示牌」（表宝、杠宝、立直时的里宝，赤五自动算），下面加减手动调。
     private var dora: some View {
         VStack(spacing: 6) {
-            TileFace(tile: Tile(suit: .dots, rank: 5)!, width: 18)
+            Button { countingDora = true } label: {
+                TileFace(tile: Tile.parseList("0p").first ?? Tile(suit: .dots, rank: 5)!, width: 18)
+                    .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(tr("翻宝牌指示牌", "ドラ表示牌", "Dora indicators"))
             HStack(spacing: 8) {
-                stepButton("minus", label: "少一张") { flow.flowerCount = max(0, flow.flowerCount - 1) }
-                    .disabled(flow.flowerCount == 0)
-                Text(tr("宝牌 \(flow.flowerCount)", "ドラ \(flow.flowerCount)", "Dora \(flow.flowerCount)"))
+                stepButton("minus", label: "少一张") { flow.stepDora(by: -1) }
+                    .disabled(flow.doraTotal == 0)
+                Text(tr("宝牌 \(flow.doraTotal)", "ドラ \(flow.doraTotal)", "Dora \(flow.doraTotal)"))
                     .font(Theme.score(12))
                     .lineLimit(1)
-                stepButton("plus", label: "多一张") { flow.flowerCount = min(12, flow.flowerCount + 1) }
-                    .disabled(flow.flowerCount == 12)
+                stepButton("plus", label: "多一张") { flow.stepDora(by: 1) }
+                    .disabled(flow.doraTotal >= 30)
             }
         }
         .accessibilityElement(children: .contain)
+        .sheet(isPresented: $countingDora) { DoraSheet(flow: flow) }
     }
 
     private func stepButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {

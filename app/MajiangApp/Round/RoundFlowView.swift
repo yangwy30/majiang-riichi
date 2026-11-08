@@ -12,8 +12,8 @@ struct RoundFlowView: View {
     /// 记下的结果，和拍的那张照片（手动输入的没有）。
     var onFinish: (HandOutcome, UIImage?) -> Void
 
-    init(game: Game, demo: DemoScreen? = nil, colorScheme: ColorScheme, onFinish: @escaping (HandOutcome, UIImage?) -> Void) {
-        let flow = RoundFlow(game: game)
+    init(game: Game, demo: DemoScreen? = nil, presetDiscarder: Int? = nil, colorScheme: ColorScheme, onFinish: @escaping (HandOutcome, UIImage?) -> Void) {
+        let flow = RoundFlow(game: game, presetDiscarder: presetDiscarder)
         #if DEBUG
         if let demo { DemoData.prepare(flow, for: demo) }
         #endif

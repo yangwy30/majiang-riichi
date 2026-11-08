@@ -13,18 +13,33 @@ public struct Meld: Hashable, Codable, Sendable {
     public var tile: Tile
     /// 只对杠有意义：true 为暗杠。吃和碰一定是明的。
     public var isConcealed: Bool
+    /// 这组里有几张赤五（吃的顺子含 5、或 5 的刻子和杠才可能有）。
+    public var redCount: Int
 
     public var isValid: Bool {
         kind != .chow || (tile.isNumbered && tile.rank <= 7)
     }
 
-    public init?(kind: Kind, tile: Tile, isConcealed: Bool = false) {
+    public init?(kind: Kind, tile: Tile, isConcealed: Bool = false, redCount: Int = 0) {
         if kind == .chow {
             guard tile.isNumbered, tile.rank <= 7 else { return nil }
         }
         self.kind = kind
-        self.tile = tile
+        self.tile = tile.marked(red: false)
         self.isConcealed = kind == .kong ? isConcealed : false
+        self.redCount = max(redCount, tile.isRed ? 1 : 0)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case kind, tile, isConcealed, redCount
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decode(Kind.self, forKey: .kind)
+        tile = try c.decode(Tile.self, forKey: .tile)
+        isConcealed = try c.decodeIfPresent(Bool.self, forKey: .isConcealed) ?? false
+        redCount = try c.decodeIfPresent(Int.self, forKey: .redCount) ?? 0
     }
 
     public static func chow(_ lowest: Tile) -> Meld? { Meld(kind: .chow, tile: lowest) }
@@ -32,13 +47,20 @@ public struct Meld: Hashable, Codable, Sendable {
     public static func kong(_ tile: Tile, concealed: Bool) -> Meld { Meld(kind: .kong, tile: tile, isConcealed: concealed)! }
 
     public var tiles: [Tile] {
+        let plain: [Tile]
         switch kind {
         case .chow:
-            [tile, Tile(tile.suit, tile.rank + 1), Tile(tile.suit, tile.rank + 2)]
+            plain = [tile, Tile(tile.suit, tile.rank + 1), Tile(tile.suit, tile.rank + 2)]
         case .pung:
-            [tile, tile, tile]
+            plain = [tile, tile, tile]
         case .kong:
-            [tile, tile, tile, tile]
+            plain = [tile, tile, tile, tile]
+        }
+        var reds = redCount
+        return plain.map { t in
+            guard reds > 0, t.rank == 5, t.isNumbered else { return t }
+            reds -= 1
+            return t.marked(red: true)
         }
     }
 
@@ -61,16 +83,17 @@ public struct Meld: Hashable, Codable, Sendable {
     /// 由 3 或 4 张牌推出一组副露；4 张一定是杠。
     public static func from(tiles: [Tile], concealedKong: Bool = false) -> Meld? {
         let sorted = tiles.sorted()
+        let reds = tiles.filter(\.isRed).count
         switch sorted.count {
         case 4 where Set(sorted).count == 1:
-            return .kong(sorted[0], concealed: concealedKong)
+            return Meld(kind: .kong, tile: sorted[0], isConcealed: concealedKong, redCount: reds)
         case 3 where Set(sorted).count == 1:
-            return .pung(sorted[0])
+            return Meld(kind: .pung, tile: sorted[0], redCount: reds)
         case 3:
             guard sorted[0].isNumbered,
                   sorted[1] == sorted[0].next,
                   sorted[2] == sorted[1].next else { return nil }
-            return .chow(sorted[0])
+            return Meld(kind: .chow, tile: sorted[0], redCount: reds)
         default:
             return nil
         }

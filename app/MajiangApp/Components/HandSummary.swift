@@ -11,12 +11,12 @@ struct FanList: View {
                 FanRow(name: entry.count > 1 ? "\(entry.fan.name) ×\(entry.count)" : entry.fan.name,
                        plain: entry.fan.explanation, points: entry.points)
             }
-            if win.flowerFan > 0 {
-                FanRow(name: tr("宝牌 ×\(win.flowerFan)", "ドラ ×\(win.flowerFan)", "Dora ×\(win.flowerFan)"),
+            if win.doraFan > 0 {
+                FanRow(name: tr("宝牌 ×\(win.doraFan)", "ドラ ×\(win.doraFan)", "Dora ×\(win.doraFan)"),
                        plain: tr("表宝牌、赤宝牌、里宝牌每张 1 翻，不算进起和役",
                                  "表ドラ・赤ドラ・裏ドラは1枚1翻（役にはなりません）",
                                  "Dora, red 5s, and ura-dora add 1 han each (not a yaku)"),
-                       points: win.flowerFan)
+                       points: win.doraFan)
             }
         }
     }

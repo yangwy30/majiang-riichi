@@ -1,6 +1,6 @@
-# iOS App（1.0）
+# 日麻算番 iOS App（1.0.0，未上架）
 
-1.0（build 2）2026-10-31 已提交 App Store 审核，产品页和送审情况见 [docs/app-store.md](../docs/app-store.md)。
+立直麻将拍照算点和牌局记账。规则取舍见 [AGENTS.md](../AGENTS.md)。
 
 ```
 app/
@@ -23,10 +23,9 @@ app/
 
 | 部分 | 内容 |
 |---|---|
-| `MajiangKit/Sources/CGuobiao` | 国标算番。直接用 [ChineseOfficialMahjongHelper](https://github.com/summerinsects/ChineseOfficialMahjongHelper) 的 C++ 算法（MIT，版权声明见 `vendor/LICENSE`，上架时要在 App 的「致谢」里列出），外面包一层 C 接口 |
-| `MajiangKit/Sources/MajiangKit/Tiles` | 牌、副露、手牌，牌的记法解析（`123m456p东东`、`5饼`、`五万`） |
-| `MajiangKit/Sources/MajiangKit/Scoring` | `FanCalculator` 算番（81 番 + 明暗杠，花牌单独计、不计入起和），`WinAssistant` 不成和时给改牌建议，`SpecialWin` 特殊情况的置灰规则 |
-| `MajiangKit/Sources/MajiangKit/Game` | 牌局：圈风、门风、庄家自动轮转（不连庄，可选每圈换座），自摸/点炮收付，荒庄，错和，手动记分，改或删以前的局（后面的局数、风位、番数、分数重算），最少转账，JSON 存档 |
+| `MajiangKit/Sources/MajiangKit/Tiles` | 牌（含赤五）、副露、手牌，牌的记法解析（`123m456p东东`、`0m` 是赤五、`5饼`、`五万`） |
+| `MajiangKit/Sources/MajiangKit/Scoring` | `FanCalculator` 纯 Swift 算役、翻和符并取高点，`Dora` 按指示牌和赤五数宝牌，`WinAssistant` 不成和时给改牌建议，`SpecialWin` 特殊情况的置灰规则 |
+| `MajiangKit/Sources/MajiangKit/Game` | 牌局：场风、自风和庄家（连庄、本场、立直供托），自摸、荣和、双响，荒牌流局、流局满贯、途中流局，错和，手动记分，击飞，头名赏和顺位马，改或删以前的局后重算，最少转账，JSON 存档 |
 | `MajiangKit/Sources/MajiangKit/Recognition` | `TileRecognizer` 协议和几种实现，见下 |
 | `MajiangApp` | 四个 tab（牌局、记录、役表、更多）和推进来的页：开局、牌桌（也是账本）、拍照（内嵌取景器）、核对、结果（弹出层）、结算，加改局、家规（`HouseRulesForm`、`GameRulesSheet`）、填邀请码（`InviteView`）、规则说明、直接改分、备份和开发版设置。视觉规范「胡桃木牌桌」在 `Support/Theme.swift`，页面颜色在 `Assets.xcassets` 的 `Table*` |
 
@@ -82,10 +81,10 @@ swift test --filter OnDeviceEvaluationTests
 ### 分享和同步
 
 - **发到微信群**：牌桌右上角和结算页把账本渲染成一张图（`Support/ShareCard.swift`，360 点宽、3 倍），走系统分享面板；结算页另有「复制文字版」。没有服务器，其他牌友在群里看图。
-- **iCloud 同步**（`Support/CloudSync.swift`）：CloudKit 私有库 `iCloud.com.yangwy30.majiang`，自定义 zone `Majiang`，每场牌局一条 `Game` 记录（字段 `json` 是那场的 JSON），常用牌友和上次规则一条 `Meta`。打开、回到前台、保存后 2 秒同步：先收再传。该传哪些、两边都改过时留哪份由 MajiangKit 的 `SyncBook` 决定（有测试）。
+- **iCloud 同步**（`Support/CloudSync.swift`）：CloudKit 私有库 `iCloud.com.yangwy30.majiang.riichi`，自定义 zone `Majiang`，每场牌局一条 `Game` 记录（字段 `json` 是那场的 JSON），常用牌友和上次规则一条 `Meta`。打开、回到前台、保存后 2 秒同步：先收再传。该传哪些、两边都改过时留哪份由 MajiangKit 的 `SyncBook` 决定（有测试）。
 - **导出 / 导入**：「更多」tab 的「备份与换手机」，导出全部牌局为 JSON 文件，导入时用 `GameArchive.merge` 只加不删。
 - 真机要用开发者 Team 93RUQ2A6KX 签名，iCloud 容器要在开发者账号里存在（第一次真机构建时 Xcode 自动注册）。
-- **记录类型要先发布到生产环境**：从 Xcode 装的开发版用 CloudKit 开发环境，第一次保存时会自动建 `Game`、`Meta`；TestFlight 和 App Store 版用生产环境，生产环境不会自动建，没发布时会报 “Cannot create new type Game in production schema”。表结构存在 `CloudKit/schema.ckdb`。改了记录类型或字段后：先确认开发环境里有（用开发版同步一次，或 `xcrun cktool import-schema --team-id 93RUQ2A6KX --container-id iCloud.com.yangwy30.majiang --environment development --file app/CloudKit/schema.ckdb`，要先 `xcrun cktool save-token`），再到 [CloudKit Console](https://icloud.developer.apple.com/) → 这个容器 → Deploy Schema Changes 发布到生产。
+- **记录类型要先发布到生产环境**：从 Xcode 装的开发版用 CloudKit 开发环境，第一次保存时会自动建 `Game`、`Meta`；TestFlight 和 App Store 版用生产环境，生产环境不会自动建，没发布时会报 “Cannot create new type Game in production schema”。表结构存在 `CloudKit/schema.ckdb`。改了记录类型或字段后：先确认开发环境里有（用开发版同步一次，或 `xcrun cktool import-schema --team-id 93RUQ2A6KX --container-id iCloud.com.yangwy30.majiang.riichi --environment development --file app/CloudKit/schema.ckdb`，要先 `xcrun cktool save-token`），再到 [CloudKit Console](https://icloud.developer.apple.com/) → 这个容器 → Deploy Schema Changes 发布到生产。
 
 ## 还没做 / 待验证
 

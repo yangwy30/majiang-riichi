@@ -101,7 +101,7 @@ enum DemoData {
             record = WinRecord(winner: winner, discarder: discarder, hand: hand, context: context, result: result)
         } else {
             record = WinRecord(winner: winner, discarder: discarder, hand: nil, context: context,
-                               fans: [FanEntry(fan: .chickenHand, count: 1)], flowerFan: 0)
+                               fans: [FanEntry(fan: .riichi, count: 1)], doraFan: 0)
         }
         _ = try? game.recordWin(record)
     }
@@ -156,7 +156,7 @@ enum DemoData {
             flow.choose(Tile(suit: .dots, rank: 5)!, at: 9)
             flow.pickSelfDrawn()
             flow.specials = [.riichi, .ippatsu]
-            flow.flowerCount = 2
+            flow.doraCount = 2
             flow.riichiPlayers = [0]
             flow.steps = [.check]
         case .notWin:

@@ -142,19 +142,18 @@ public struct GeminiRecognizer: TileRecognizer {
     这是一张麻将照片，拍的是和牌那家的牌：手牌推倒排成一排，和的那张放在最右；吃、碰、杠放在旁边，暗杠翻开一张或两张。
     请逐张读出这家的牌。
     - 不要算进别人的牌、打出去的牌（牌河）、牌墙和桌上其他散牌。
-    - 记法：1m-9m=万子，1p-9p=饼/筒子，1s-9s=条/索子，字牌用汉字：东 南 西 北 中 发 白。
+    - 记法：1m-9m=万子，1p-9p=饼/筒子，1s-9s=条/索子，字牌用汉字：东 南 西 北 中 发 白。赤五（图案全红或带红点的 5）写 0m、0p、0s。
     - concealed：排成一排的手牌，从左到右，包括最右边和的那张。
     - melds：摆在旁边的每一组吃、碰、杠。kind 写 chow（吃）、pung（碰）、kong（明杠）或 concealed_kong（暗杠）；杠写满 4 张，扣着的那张也算作这张杠牌。
-    - flowers：统计这手牌（含副露）里有几张「赤宝牌」（整张牌面图案全红或带红点标记的红5万、红5饼、红5条；在 concealed 和 melds 里仍写 5m、5p、5s，同时把赤五的张数填在 flowers 里。如果照片里有春夏秋冬梅兰竹菊花牌，也计入 flowers）。
     特别注意：条子和饼子要逐张数点数，不要凭整体印象猜。
-    - 条子数竹节根数：1条通常画成一只鸟；5条是四角各一根 + 中间一根（普通 5条只有中间那根是红色，不算赤五；只有五根竹节全红才算赤5条）；4条是两列各两根、中间没有；6条是两排各三根；7条是顶上一根 + 下面六根；8条常画成 W/M 形；9条是三排各三根。
+    - 条子数竹节根数：1条通常画成一只鸟；5条是四角各一根 + 中间一根（普通 5条只有中间那根是红色，写 5s；五根竹节全红才写 0s）；4条是两列各两根、中间没有；6条是两排各三根；7条是顶上一根 + 下面六根；8条常画成 W/M 形；9条是三排各三根。
     - 饼子数圆点：6饼是上面 2 个 + 下面 4 个；7饼是斜着 3 个 + 下面 4 个；8饼是两列各 4 个。
     - 每张先数清楚再写，写完确认张数：立牌 + 每组副露 3 张（杠 4 张）一般共 14 张，每个杠多 1 张。
     不要判断和没和，只输出 JSON。
     """
 
     /// 34 种牌的记法，限定模型只能输出这些。
-    static let tileNotations: [String] = Tile.all.map(\.notation)
+    static let tileNotations: [String] = Tile.all.map(\.notation) + ["0m", "0p", "0s"]
 
     static let schema: [String: Any] = [
         "type": "OBJECT",
@@ -169,10 +168,9 @@ public struct GeminiRecognizer: TileRecognizer {
                 ],
                 "required": ["kind", "tiles"],
             ]],
-            "flowers": ["type": "INTEGER"],
             "confidence": ["type": "STRING", "enum": ["high", "medium", "low"]],
         ],
-        "required": ["concealed", "melds", "flowers"],
+        "required": ["concealed", "melds"],
     ]
 
     // MARK: 回答
@@ -199,7 +197,6 @@ public struct GeminiRecognizer: TileRecognizer {
         }
         var concealed: [String]
         var melds: [MeldAnswer]?
-        var flowers: Int?
         var confidence: String?
     }
 
@@ -241,9 +238,7 @@ public struct GeminiRecognizer: TileRecognizer {
         return try parseAnswer(Data(text.utf8))
     }
 
-    static let flowerNames: Set<Character> = ["春", "夏", "秋", "冬", "梅", "兰", "竹", "菊", "花"]
-
-    /// 解析模型的 JSON。读不懂的牌不让整次识别失败：花牌名记进花牌数，其他的丢掉并记一条说明，
+    /// 解析模型的 JSON。读不懂的牌不让整次识别失败：丢掉并记一条说明，
     /// 张数不对时确认页会提示补牌；拼不成一组的副露拆回立牌，标成待确认。
     static func parseAnswer(_ data: Data) throws -> Recognition {
         let answer: Answer
@@ -253,16 +248,11 @@ public struct GeminiRecognizer: TileRecognizer {
             throw RecognitionError.badResponse("JSON 格式不对")
         }
 
-        var flowers = max(0, answer.flowers ?? 0)
         var notes: [String] = []
         func read(_ tokens: [String]) -> [Tile] {
             tokens.compactMap { token in
                 if let tile = Tile(notation: token) { return tile }
-                if let first = token.first, flowerNames.contains(first) {
-                    flowers += 1
-                } else {
-                    notes.append("有一张牌没认出来（\(token)）")
-                }
+                notes.append("有一张牌没认出来（\(token)）")
                 return nil
             }
         }
@@ -274,7 +264,10 @@ public struct GeminiRecognizer: TileRecognizer {
             let isKong = m.kind == "kong" || m.kind == "concealed_kong"
             if isKong, (3...4).contains(tiles.count), Set(tiles).count == 1 {
                 // 暗杠扣着的牌模型有时只报 3 张，按类型认成杠
-                melds.append(.kong(tiles[0], concealed: m.kind == "concealed_kong"))
+                if let kong = Meld(kind: .kong, tile: tiles[0], isConcealed: m.kind == "concealed_kong",
+                                   redCount: tiles.filter(\.isRed).count) {
+                    melds.append(kong)
+                }
             } else if let meld = Meld.from(tiles: tiles, concealedKong: m.kind == "concealed_kong") {
                 melds.append(meld)
             } else {
@@ -282,7 +275,7 @@ public struct GeminiRecognizer: TileRecognizer {
                 concealed.insert(contentsOf: tiles.map { RecognizedTile(tile: $0, uncertain: true) }, at: 0)
             }
         }
-        var recognition = Recognition(concealed: concealed, melds: melds, flowerCount: flowers, source: "Gemini")
+        var recognition = Recognition(concealed: concealed, melds: melds, source: "Gemini")
         recognition.notes = notes
         return recognition
     }
@@ -293,8 +286,7 @@ public struct GeminiRecognizer: TileRecognizer {
             melds: recognition.melds.map { meld in
                 let kind = meld.kind == .kong ? (meld.isConcealed ? "concealed_kong" : "kong") : meld.kind.rawValue
                 return Answer.MeldAnswer(kind: kind, tiles: meld.tiles.map(\.notation))
-            },
-            flowers: recognition.flowerCount)
+            })
         let data = (try? JSONEncoder().encode(answer)) ?? Data()
         return String(decoding: data, as: UTF8.self)
     }

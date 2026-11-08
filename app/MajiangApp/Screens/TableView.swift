@@ -11,6 +11,8 @@ struct TableView: View {
 
     @State private var recording = false
     @State private var drawingHand = false
+    @State private var specialDraw = false
+    @State private var secondRon = false
     @State private var manualScoring = false
     @State private var editingRules = false
     @State private var confirmEnd = false
@@ -38,7 +40,7 @@ struct TableView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header(game)
-                // 桌规跟标准半庄不一样时才露一行，点开能改
+                // 桌规跟标准不一样时才露一行，点开能改
                 if let badge = game.rules.houseRuleBadge {
                     Button { editingRules = true } label: {
                         Text(badge + " ›")
@@ -57,42 +59,7 @@ struct TableView: View {
                 actions(game)
                     .padding(.top, 24)
 
-                HStack(alignment: .firstTextBaseline) {
-                    Text("账本").font(.system(size: 13, weight: .medium))
-                    Spacer()
-                    Text(tr("打了 \(game.playedHandsCount) 局", "\(game.playedHandsCount)局消化", "\(game.playedHandsCount) played"))
-                        .font(.system(size: 13))
-                }
-                .foregroundStyle(Theme.gray)
-                .padding(.top, 24)
-                .padding(.bottom, 6)
-                Hairline()
-
-                if game.records.isEmpty {
-                    Text(game.isFinished
-                         ? tr("这场没有记录。", "記録はありません。", "No hands recorded.")
-                         : tr("还没有记录。有人和了就点上面的按钮。", "まだ記録がありません。和了が出たら上のボタンをタップ。", "No hands yet. Tap the button above when someone wins."))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.gray)
-                        .padding(.vertical, 14)
-                }
-                ForEach(Array(game.records.enumerated().reversed()), id: \.element.id) { index, record in
-                    // 和牌的局点进去看怎么和的（在里面也能改）；别的局直接改或删。打完的牌局也一样
-                    Button {
-                        open(record, number: index + 1)
-                    } label: {
-                        RecordRow(record: record, game: game)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint(record.isWin ? "点一下看这一局怎么和的" : "点一下可以改或删掉这一局")
-                }
-                if !game.records.isEmpty && !model.isSeasoned {
-                    Text("点一局，看那把怎么和的；记错了也在里面改。")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.gray)
-                        .padding(.top, 14)
-                        .padding(.bottom, 8)
-                }
+                ledger(game)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -146,21 +113,14 @@ struct TableView: View {
                 }
             }
         }
-        .sheet(isPresented: $drawingHand) {
-            DrawHandSheet(game: game) { tenpai, riichi in
-                record { try $0.recordDraw(tenpai: tenpai, riichi: riichi) }
+        .fullScreenCover(isPresented: $secondRon) {
+            if case .win(let last)? = game.records.last?.outcome {
+                RoundFlowView(game: game.beforeLastRecord, presetDiscarder: last.discarder, colorScheme: colorScheme) { outcome, _ in
+                    if case .win(let win) = outcome { edit { try $0.addSecondRon(win) } }
+                }
             }
         }
-        .sheet(isPresented: $manualScoring) {
-            ManualScoreView(game: game) { deltas, note in
-                record { try $0.recordManual(deltas: deltas, note: note) }
-            }
-        }
-        .sheet(isPresented: $editingRules) {
-            GameRulesSheet(game: game, draft: demoRulesDraft(game)) { rules in
-                edit { try $0.changeRules(rules) }
-            }
-        }
+        .modifier(TableSheets(game: game, specialDraw: $specialDraw, drawingHand: $drawingHand, manualScoring: $manualScoring, editingRules: $editingRules, rulesDraft: demoRulesDraft(game), record: { change in record(change) }, edit: { change in edit(change) }))
         .onAppear {
             if model.demoScreen == .table { justRecorded = game.records.last }
             if model.demoScreen == .draw { drawingHand = true }
@@ -174,6 +134,47 @@ struct TableView: View {
             Button("好") { recordError = nil }
         } message: {
             Text(recordError ?? "")
+        }
+    }
+
+    /// 账本：每一局一行，最新的在上面。
+    @ViewBuilder
+    private func ledger(_ game: Game) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("账本").font(.system(size: 13, weight: .medium))
+            Spacer()
+            Text(tr("打了 \(game.playedHandsCount) 局", "\(game.playedHandsCount)局消化", "\(game.playedHandsCount) played"))
+                .font(.system(size: 13))
+        }
+        .foregroundStyle(Theme.gray)
+        .padding(.top, 24)
+        .padding(.bottom, 6)
+        Hairline()
+
+        if game.records.isEmpty {
+            Text(game.isFinished
+                 ? tr("这场没有记录。", "記録はありません。", "No hands recorded.")
+                 : tr("还没有记录。有人和了就点上面的按钮。", "まだ記録がありません。和了が出たら上のボタンをタップ。", "No hands yet. Tap the button above when someone wins."))
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.gray)
+                .padding(.vertical, 14)
+        }
+        ForEach(Array(game.records.enumerated().reversed()), id: \.element.id) { index, record in
+            // 和牌的局点进去看怎么和的（在里面也能改）；别的局直接改或删。打完的牌局也一样
+            Button {
+                open(record, number: index + 1)
+            } label: {
+                RecordRow(record: record, game: game)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(record.isWin ? "点一下看这一局怎么和的" : "点一下可以改或删掉这一局")
+        }
+        if !game.records.isEmpty && !model.isSeasoned {
+            Text("点一局，看那把怎么和的；记错了也在里面改。")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.gray)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
         }
     }
 
@@ -208,6 +209,10 @@ struct TableView: View {
             Menu {
                 if !game.isFinished {
                     Button("有人和错了") { pickingFalseWin = true }
+                    Button(tr("特殊流局", "特殊な流局", "Special Draw")) { specialDraw = true }
+                }
+                if case .win(let last)? = game.records.last?.outcome, last.discarder != nil {
+                    Button(tr("还有一家也和了（双响）", "もう一人もロン（ダブロン）", "Another Ron (Double Ron)")) { secondRon = true }
                 }
                 Button("直接改分") { manualScoring = true }
                 Button("这场的规则") { editingRules = true }
@@ -546,5 +551,43 @@ private struct DrawHandSheet: View {
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(16)
         .presentationBackground(Theme.paper)
+    }
+}
+
+/// 牌桌上弹出来的几页：特殊流局、流局、直接改分、这场的规则。单独放一处，免得牌桌的 body 太长编译器算不过来。
+private struct TableSheets: ViewModifier {
+    var game: Game
+    @Binding var specialDraw: Bool
+    @Binding var drawingHand: Bool
+    @Binding var manualScoring: Bool
+    @Binding var editingRules: Bool
+    var rulesDraft: GameRules?
+    var record: ((inout Game) throws -> HandRecord) -> Void
+    var edit: ((inout Game) throws -> Void) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $specialDraw) {
+                SpecialDrawSheet(game: game) { kind, riichi in
+                    record { try $0.recordAbortiveDraw(kind, riichi: riichi) }
+                } onNagashi: { players, tenpai, riichi in
+                    record { try $0.recordNagashi(players: players, tenpai: tenpai, riichi: riichi) }
+                }
+            }
+            .sheet(isPresented: $drawingHand) {
+                DrawHandSheet(game: game) { tenpai, riichi in
+                    record { try $0.recordDraw(tenpai: tenpai, riichi: riichi) }
+                }
+            }
+            .sheet(isPresented: $manualScoring) {
+                ManualScoreView(game: game) { deltas, note in
+                    record { try $0.recordManual(deltas: deltas, note: note) }
+                }
+            }
+            .sheet(isPresented: $editingRules) {
+                GameRulesSheet(game: game, draft: rulesDraft) { rules in
+                    edit { try $0.changeRules(rules) }
+                }
+            }
     }
 }

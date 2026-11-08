@@ -1,6 +1,6 @@
 import Foundation
 
-/// 花色。raw value 与算番库的编码一致（高 4 位）。
+/// 花色。
 public enum Suit: Int, Codable, CaseIterable, Sendable {
     case characters = 1  // 万
     case bamboo = 2      // 条
@@ -17,7 +17,7 @@ public enum Suit: Int, Codable, CaseIterable, Sendable {
         }
     }
 
-    public var chineseName: String {
+    public var shortName: String {
         switch self {
         case .characters: tr("万", "萬", "m")
         case .bamboo: tr("条", "索", "s")
@@ -27,21 +27,39 @@ public enum Suit: Int, Codable, CaseIterable, Sendable {
     }
 }
 
-/// 一张牌（不含花牌，花牌只计数量）。
+/// 一张牌。
 public struct Tile: Hashable, Comparable, Sendable {
     public let suit: Suit
     /// 数牌 1–9；字牌 1 东 2 南 3 西 4 北 5 中 6 发 7 白。
     public let rank: Int
+    /// 赤五。只影响宝牌张数和显示，算番时和普通的 5 是同一种牌，所以不参与相等比较。
+    public let isRed: Bool
 
-    public init?(suit: Suit, rank: Int) {
+    public init?(suit: Suit, rank: Int, isRed: Bool = false) {
         let maxRank = suit == .honors ? 7 : 9
         guard (1...maxRank).contains(rank) else { return nil }
+        guard !isRed || (suit != .honors && rank == 5) else { return nil }
         self.suit = suit
         self.rank = rank
+        self.isRed = isRed
     }
 
     init(_ suit: Suit, _ rank: Int) {
         self.init(suit: suit, rank: rank)!
+    }
+
+    public static func == (lhs: Tile, rhs: Tile) -> Bool {
+        lhs.suit == rhs.suit && lhs.rank == rhs.rank
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(suit)
+        hasher.combine(rank)
+    }
+
+    /// 同一张牌改成赤五或普通牌；不是数牌 5 时原样返回。
+    public func marked(red: Bool) -> Tile {
+        Tile(suit: suit, rank: rank, isRed: red) ?? self
     }
 
     /// 全部 34 种牌，按万、条、饼、字排序。
@@ -67,16 +85,6 @@ public struct Tile: Hashable, Comparable, Sendable {
     /// 同花色的下一张数牌（9 之后没有）。
     public var next: Tile? { isNumbered ? Tile(suit: suit, rank: rank + 1) : nil }
 
-    // MARK: 编码
-
-    /// 算番库的牌编码：高 4 位花色，低 4 位点数。
-    public var code: UInt8 { UInt8(suit.rawValue << 4 | rank) }
-
-    public init?(code: UInt8) {
-        guard let suit = Suit(rawValue: Int(code >> 4)) else { return nil }
-        self.init(suit: suit, rank: Int(code & 0xF))
-    }
-
     // MARK: 文字
 
     static let honorNames = ["东", "南", "西", "北", "中", "发", "白"]
@@ -86,7 +94,8 @@ public struct Tile: Hashable, Comparable, Sendable {
 
     /// 机器记法，与测试脚本、Gemini 输出一致：`5p`、`3m`、`7s`，字牌直接写汉字。
     public var notation: String {
-        isHonor ? Tile.honorNames[rank - 1] : "\(rank)\(suit.letter)"
+        if isHonor { return Tile.honorNames[rank - 1] }
+        return "\(isRed ? 0 : rank)\(suit.letter)"
     }
 
     /// 给人看的名字：`5饼`、`3万`、`东`。
@@ -98,7 +107,7 @@ public struct Tile: Hashable, Comparable, Sendable {
             case .en: return Tile.honorNamesEN[rank - 1]
             }
         }
-        return "\(rank)\(suit.chineseName)"
+        return "\(isRed ? tr("赤", "赤", "Red ") : "")\(rank)\(suit.shortName)"
     }
 
     /// 牌面上的大字：万子写「五」，字牌写「中」，饼条不用。
@@ -148,14 +157,17 @@ extension Tile {
 
         func flush(_ suit: Suit) {
             for rank in pendingRanks {
-                if let tile = Tile(suit: suit, rank: rank) { result.append(tile) }
+                // 0 是赤五，例如 `0m`、`340p`。
+                if let tile = rank == 0 ? Tile(suit: suit, rank: 5, isRed: true) : Tile(suit: suit, rank: rank) {
+                    result.append(tile)
+                }
             }
             pendingRanks.removeAll()
         }
 
         for ch in text {
             if let digit = ch.wholeNumberValue, (0...9).contains(digit) {
-                pendingRanks.append(digit == 0 ? 5 : digit)
+                pendingRanks.append(digit)
             } else if let index = chineseNumerals.firstIndex(of: String(ch)) {
                 pendingRanks.append(index + 1)
             } else if let suit = suitSuffix(ch) {
@@ -215,7 +227,7 @@ extension Array where Element == Tile {
                 out += tile.notation
             } else {
                 if runSuit != tile.suit { flush(); runSuit = tile.suit }
-                run.append(tile.rank)
+                run.append(tile.isRed ? 0 : tile.rank)
             }
         }
         flush()
@@ -229,7 +241,7 @@ extension Array where Element == Tile {
         var runSuit: Suit?
         func flush() {
             if let suit = runSuit, !run.isEmpty {
-                groups.append(run.map(String.init).joined() + suit.chineseName)
+                groups.append(run.map(String.init).joined() + suit.shortName)
             }
             run.removeAll()
         }
