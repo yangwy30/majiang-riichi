@@ -50,6 +50,8 @@ final class AppModel {
     var archive: GameArchive
     var path: [Route] = []
     var selectedTab: AppTab = .game
+    /// 刚打完的那场（打满局数或有人被击飞）：牌桌 tab 先留着它，让大家看到最后的牌桌、还能撤销，点「看结算」才收起。
+    var justFinishedGameID: UUID?
     var loadError: String?
 
     var recognitionMode: RecognitionMode {
@@ -114,6 +116,12 @@ final class AppModel {
                 try? archive.save(to: url)
                 DemoData.preparePhotos(archive)
             }
+        }
+        #endif
+        #if DEBUG
+        // UI 测试用：`-ui-test-reset` 每次打开都从空的账本开始，几个测试互不影响
+        if ProcessInfo.processInfo.arguments.contains("-ui-test-reset") {
+            try? FileManager.default.removeItem(at: url)
         }
         #endif
         // 读不出来时原文件会被改名备份，之后保存不会覆盖掉旧记录

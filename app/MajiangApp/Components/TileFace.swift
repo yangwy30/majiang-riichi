@@ -238,7 +238,8 @@ private struct HonorFace: View {
                 .stroke(Theme.tileBlue, lineWidth: max(1.5, width * 0.05))
                 .padding(width * 0.06)
         } else {
-            Text(tile.faceCharacter)
+            // 牌面上跟真牌一样写繁体：東南西北中發
+            Text(["東", "南", "西", "北", "中", "發", ""][max(0, min(6, tile.rank - 1))])
                 .font(.system(size: width * 0.62, weight: .heavy))
                 .foregroundStyle(color)
                 .minimumScaleFactor(0.5)

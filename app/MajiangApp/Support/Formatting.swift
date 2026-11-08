@@ -97,10 +97,11 @@ extension HandRecord {
 
 extension Game {
     /// 每家开局的点数。账本里存的是净得失，界面上按日麻的习惯加上这个数显示。
-    static let startingPoints = 25_000
+    /// 空桌上写的起始点数（跟默认规则一样）。
+    static let startingPoints = GameRules.standard.startingPoints
 
-    /// 现在手上的点数（净得失是 `scores`）。
-    func currentPoints(of player: Int) -> Int { Game.startingPoints + scores[player] }
+    /// 牌桌上每家现在的点数：起始点数加上每局得失（不含终局的头名赏和顺位马）。
+    func currentPoints(of player: Int) -> Int { currentPoints[player] }
 
     /// 牌桌顶上的大字：「东 3 局」。打完了是「终局」。
     var handLabelShort: String {

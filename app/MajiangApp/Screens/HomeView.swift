@@ -31,7 +31,7 @@ private struct GameTab: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if let game = model.archive.activeGame {
+        if let game = model.archive.activeGame ?? model.justFinishedGameID.flatMap(model.game) {
             TableView(gameID: game.id, isRoot: true)
                 .id(game.id)
         } else {

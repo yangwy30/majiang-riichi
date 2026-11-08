@@ -225,6 +225,7 @@ struct TableView: View {
                 headerIcon("ellipsis.circle")
             }
             .accessibilityLabel(tr("更多", "その他", "More"))
+            .accessibilityIdentifier("table-menu")
         }
     }
 
@@ -240,8 +241,14 @@ struct TableView: View {
     @ViewBuilder
     private func actions(_ game: Game) -> some View {
         if game.isFinished {
-            Button("看结算") { settle(game) }
-                .buttonStyle(.primary)
+            VStack(spacing: 10) {
+                Text(finishReason(game))
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.gray)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button("看结算") { settle(game) }
+                    .buttonStyle(.primary)
+            }
         } else {
             TableActions(symbol: "camera", title: tr("有人和了", "和了を記録", "Someone won"),
                          secondary: tr("流局", "流局", "Draw")) {
@@ -264,9 +271,12 @@ struct TableView: View {
     @discardableResult
     private func record(_ change: (inout Game) throws -> HandRecord) -> HandRecord? {
         guard var updated = model.game(gameID) else { return nil }
+        let wasFinished = updated.isFinished
         do {
             let record = try change(&updated)
             model.update(updated)
+            // 这一局让牌局结束了（打满或击飞）：牌桌先留着，不要一下子变回空桌
+            if updated.isFinished && !wasFinished { model.justFinishedGameID = updated.id }
             showUndo(for: record)
             return record
         } catch let error as GameError {
@@ -325,11 +335,25 @@ struct TableView: View {
         withAnimation(.easeIn(duration: 0.2)) { justRecorded = nil }
     }
 
+    /// 牌局为什么结束了：有人点数跌破 0（击飞）、打满了，或者手动结束。
+    private func finishReason(_ game: Game) -> String {
+        if game.isBusted, let busted = (0..<4).first(where: { game.currentPoints[$0] < 0 }) {
+            return tr("\(game.players[busted].name)的点数跌破 0（击飞），这场打完了。",
+                      "\(game.players[busted].name)が0点未満（トビ）、対局終了です。",
+                      "\(game.players[busted].name) dropped below 0 (bust). The game is over.")
+        }
+        if game.remainingHands == 0 {
+            return tr("局数打满了，这场打完了。", "全局終了しました。", "All hands played. The game is over.")
+        }
+        return tr("这场打完了。", "対局終了です。", "The game is over.")
+    }
+
     /// 结束牌局（打满 16 局时已经算结束），换到结算页；返回直接回首页。
     private func settle(_ game: Game) {
         var updated = game
         if updated.endedAt == nil { updated.end() }
         model.update(updated)
+        model.justFinishedGameID = nil
         model.path = [.settle(game.id)]
     }
 }

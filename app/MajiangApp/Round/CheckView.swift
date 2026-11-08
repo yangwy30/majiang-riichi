@@ -292,6 +292,9 @@ struct CheckView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(flow.isReviewing)
+                        // 读屏时也要知道哪几张可以选成和的那张、现在选的是哪张
+                        .accessibilityValue(asking && index == winningIndex ? tr("和的那张", "和了牌", "winning tile")
+                                            : asking && isCandidate ? tr("可以是和的那张", "和了牌の候補", "possible winning tile") : "")
                         .opacity(landed || reduceMotion ? 1 : 0)
                         .offset(x: landed || reduceMotion ? 0 : -18)
                         .animation(.easeOut(duration: 0.28).delay(Double(index) * 0.035), value: landed)

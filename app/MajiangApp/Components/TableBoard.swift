@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MajiangKit
 
 /// 牌桌：俯视一张胡桃木框的绿毡麻将桌。四家按真实座次坐在四边（自己在下，下家在右，对家在上，上家在左），
@@ -141,14 +142,8 @@ struct FeltTexture: View {
     var body: some View {
         ZStack {
             RadialGradient(colors: Theme.felt, center: UnitPoint(x: 0.5, y: 0.38), startRadius: 0, endRadius: 220)
-            Canvas { context, size in
-                var rng = SeededRandom(seed: 7)
-                for _ in 0..<Int(size.width * size.height / 14) {
-                    let x = rng.next() * size.width, y = rng.next() * size.height
-                    context.fill(Path(CGRect(x: x, y: y, width: 0.7, height: 0.7)),
-                                 with: .color(.white.opacity(0.05 + rng.next() * 0.05)))
-                }
-            }
+            // 绒面颗粒是一小块图平铺的，只画一次；每次重画都撒几千个点会让牌桌出来得慢
+            Image(uiImage: TextureTiles.feltGrain).resizable(resizingMode: .tile)
             // 毡面比木框低一点：边上压一圈阴影
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(.black.opacity(0.35), lineWidth: 6)
@@ -162,17 +157,37 @@ private struct Walnut: View {
     var body: some View {
         ZStack {
             LinearGradient(colors: Theme.walnut, startPoint: .topLeading, endPoint: .bottomTrailing)
-            Canvas { context, size in
-                var x: CGFloat = 0
-                var rng = SeededRandom(seed: 3)
-                while x < size.width {
-                    context.fill(Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .color(.white.opacity(0.035)))
-                    x += 4 + rng.next() * 5
-                }
-            }
+            Image(uiImage: TextureTiles.woodGrain).resizable(resizingMode: .tile)
             LinearGradient(colors: [.white.opacity(0.18), .clear, .black.opacity(0.18)], startPoint: .top, endPoint: .bottom)
         }
     }
+}
+
+/// 毡面颗粒和木纹的小图，App 里只画一次，用的时候平铺。
+private enum TextureTiles {
+    static let feltGrain: UIImage = {
+        let size = CGSize(width: 96, height: 96)
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            var rng = SeededRandom(seed: 7)
+            for _ in 0..<Int(size.width * size.height / 14) {
+                UIColor(white: 1, alpha: 0.05 + rng.next() * 0.05).setFill()
+                ctx.fill(CGRect(x: rng.next() * size.width, y: rng.next() * size.height, width: 0.7, height: 0.7))
+            }
+        }
+    }()
+
+    static let woodGrain: UIImage = {
+        let size = CGSize(width: 120, height: 8)
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            var rng = SeededRandom(seed: 3)
+            var x: CGFloat = 0
+            UIColor(white: 1, alpha: 0.035).setFill()
+            while x < size.width {
+                ctx.fill(CGRect(x: x, y: 0, width: 1, height: size.height))
+                x += 4 + rng.next() * 5
+            }
+        }
+    }()
 }
 
 /// 固定种子的随机数，毡面颗粒和木纹每次画出来都一样。
