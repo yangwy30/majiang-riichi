@@ -1,7 +1,12 @@
 import SwiftUI
 import MajiangKit
 
-/// 只有一条主线：首页 → 开局 → 牌桌（也是账本）→ 结算。记一局是从牌桌全屏弹出的。
+/// 四个 tab。
+enum AppTab: Hashable {
+    case game, history, guide, more
+}
+
+/// 从 tab 上推进来的页。没打完的牌局就在第一个 tab 上，记一局是从那里全屏弹出的。
 enum Route: Hashable {
     case newGame
     case table(UUID)
@@ -44,6 +49,9 @@ enum RecognitionMode: String, CaseIterable, Identifiable {
 final class AppModel {
     var archive: GameArchive
     var path: [Route] = []
+    var selectedTab: AppTab = .game
+    /// 刚打完的那场（打满局数或有人被击飞）：牌桌 tab 先留着它，让大家看到最后的牌桌、还能撤销，点「看结算」才收起。
+    var justFinishedGameID: UUID?
     var loadError: String?
 
     var recognitionMode: RecognitionMode {
@@ -110,6 +118,12 @@ final class AppModel {
             }
         }
         #endif
+        #if DEBUG
+        // UI 测试用：`-ui-test-reset` 每次打开都从空的账本开始，几个测试互不影响
+        if ProcessInfo.processInfo.arguments.contains("-ui-test-reset") {
+            try? FileManager.default.removeItem(at: url)
+        }
+        #endif
         // 读不出来时原文件会被改名备份，之后保存不会覆盖掉旧记录
         let (loaded, backup, failure) = GameArchive.loadOrRecover(from: url)
         var error: String?
@@ -134,16 +148,16 @@ final class AppModel {
         self.loadError = error
         // 存过旧的 workers.dev 地址（在开发设置里点过「用我们的服务器」）的，换成新地址
         if proxyURL == Self.legacyProxyURL { proxyURL = Self.defaultProxyURL }
-        // 有没打完的牌局时，打开 App 直接进牌桌
-        if let active = loaded.activeGame { path = [.table(active.id)] }
         switch demoScreen {
-        case .home, .emptyHome, .backup, .invite, .more: path = []
+        case .history: selectedTab = .history
+        case .guide: selectedTab = .guide
+        case .backup, .invite, .more: selectedTab = .more
         case .newGame, .houseRules, .rulePicker: path = [.newGame]
         case .settle: path = loaded.finishedGames.first.map { [.settle($0.id)] } ?? []
         case .handDetail, .handPhoto, .handDiscard:
             let i = demoScreen == .handDiscard ? 1 : 0
             if let game = loaded.activeGame, game.records.indices.contains(i) {
-                path = [.table(game.id), .hand(game.id, game.records[i].id)]
+                path = [.hand(game.id, game.records[i].id)]
             }
         default: break
         }

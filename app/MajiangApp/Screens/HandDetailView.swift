@@ -56,40 +56,40 @@ struct HandDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 let dealerName = game.players[game.dealer(ofHand: record.handIndex)].name
-                Text(tr("第 \(number) 局 · \(game.handTitle(for: record)) · \(dealerName)坐庄",
-                        "第\(number)局・\(game.handTitle(for: record))・親：\(dealerName)",
-                        "Hand #\(number) · \(game.handTitle(for: record)) · Dealer: \(dealerName)"))
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.gray)
-                    .padding(.top, 6)
-
                 let paid = game.rules.paidFan(win)
                 let limit = Payment.limitName(han: paid, fu: win.fu, kiriageMangan: game.rules.kiriageMangan)
-                HStack(alignment: .firstTextBaseline) {
-                    Text(win.isSelfDrawn
-                         ? tr("\(game.players[win.winner].name)自摸", "\(game.players[win.winner].name) ツモ", "\(game.players[win.winner].name) Tsumo")
-                         : tr("\(game.players[win.winner].name)和", "\(game.players[win.winner].name) ロン", "\(game.players[win.winner].name) Ron"))
-                        .font(.system(size: 30, weight: .semibold))
-                        .tracking(-0.4)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Spacer(minLength: 12)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        if let limit {
-                            LimitStamp(text: limit, size: 14)
-                                .alignmentGuide(.firstTextBaseline) { d in d[.bottom] - 3 }
+                // 跟结果页一样的绿毡头：谁怎么和的、赢多少、段位和翻符
+                FeltBanner {
+                    VStack(spacing: 4) {
+                        Text(tr("第 \(number) 局 · \(game.handTitle(for: record)) · \(dealerName)坐庄",
+                                "第\(number)局・\(game.handTitle(for: record))・親：\(dealerName)",
+                                "Hand #\(number) · \(game.handTitle(for: record)) · Dealer: \(dealerName)"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text(win.isSelfDrawn
+                             ? tr("\(game.players[win.winner].name) · 自摸", "\(game.players[win.winner].name)・ツモ", "\(game.players[win.winner].name) · Tsumo")
+                             : tr("\(game.players[win.winner].name) · 荣和", "\(game.players[win.winner].name)・ロン", "\(game.players[win.winner].name) · Ron"))
+                            .font(.system(size: 15))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding(.top, 6)
+                        Text(Theme.signed(record.deltas[win.winner]))
+                            .font(Theme.score(52, weight: .bold))
+                            .tracking(-1.2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        HStack(spacing: 10) {
+                            if let limit { LimitStamp(text: limit, size: 14, color: .white) }
+                            Text(tr("\(win.totalFan) 翻 · \(win.fu) 符", "\(win.totalFan)翻・\(win.fu)符", "\(win.totalFan) han · \(win.fu) fu"))
+                                .font(Theme.score(14, weight: .regular))
+                                .foregroundStyle(.white.opacity(0.85))
                         }
-                        Text("\(win.totalFan)")
-                            .font(.system(size: 46, weight: .ultraLight).monospacedDigit())
-                            .tracking(-1)
-                        Text(tr("翻", "翻", "han")).font(Theme.serif(18))
-                        Text(tr("· \(win.fu) 符", "・\(win.fu)符", "· \(win.fu) fu"))
-                            .font(.system(size: 16, weight: .light).monospacedDigit())
-                            .foregroundStyle(Theme.gray)
                     }
+                    .padding(.top, 18)
+                    .padding(.bottom, 24)
+                    .padding(.horizontal, 20)
                     .accessibilityElement(children: .combine)
                 }
-                .padding(.top, 2)
+                .padding(.horizontal, -20)
 
                 if game.rules.paidFan(win) < win.totalFan {
                     Text(tr("桌规封顶 \(game.rules.fanCap) 翻：\(win.totalFan) 翻按 \(game.rules.fanCap) 算",
@@ -97,9 +97,6 @@ struct HandDetailView: View {
                             "Capped at \(game.rules.fanCap) han (\(win.totalFan) han counted as \(game.rules.fanCap))"))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Theme.lineSoft, in: Capsule())
                         .padding(.top, 8)
                 }
 
@@ -114,7 +111,8 @@ struct HandDetailView: View {
                     }
                 } else {
                     // 没拍照、在账本里直接改成「和了」的局，只有番数
-                    Text(win.discarder.map { "\(game.players[$0].name)点的炮。" } ?? "自摸。")
+                    Text(win.discarder.map { tr("\(game.players[$0].name)点的炮。", "\(game.players[$0].name)の放銃。", "Dealt in by \(game.players[$0].name).") }
+                         ?? tr("自摸。", "ツモ。", "Tsumo."))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .padding(.top, 14)
@@ -160,7 +158,7 @@ struct HandDetailView: View {
                 SectionLabel("这局谁付多少")
                     .padding(.top, 24)
                     .padding(.bottom, 6)
-                DeltaGrid(game: game, deltas: record.deltas)
+                DeltaGrid(game: game, deltas: record.deltas, hand: record.handIndex)
                 Text(game.paymentExplanation(win, honba: record.honba, pot: record.pot, deltas: record.deltas))
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
@@ -168,7 +166,7 @@ struct HandDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 10)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 20)
             .padding(.bottom, 32)
         }
         .sheet(isPresented: $editing, onDismiss: applyPendingChange) {
@@ -180,7 +178,7 @@ struct HandDetailView: View {
         }
         .fullScreenCover(isPresented: $showPhoto) {
             if let photo {
-                HandPhotoView(photo: photo, caption: "第 \(number) 局 · \(record.title(in: game))", date: record.date) {
+                HandPhotoView(photo: photo, caption: tr("第 \(number) 局", "第\(number)局", "Hand #\(number)") + " · \(record.title(in: game))", date: record.date) {
                     HandPhotos.delete(recordID)
                     self.photo = nil
                 }
@@ -251,7 +249,8 @@ struct HandPhotoView: View {
                     .font(.system(size: 16))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
-                Text("\(date.formatted(.dateTime.month().day().hour(.twoDigits(amPM: .omitted)).minute())) · 只存在这台手机上")
+                Text(date.formatted(.dateTime.month().day().hour(.twoDigits(amPM: .omitted)).minute())
+                     + tr(" · 只存在这台手机上", "・この端末にのみ保存", " · Stored on this phone only"))
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.faint)
             }

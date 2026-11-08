@@ -9,7 +9,7 @@ extension HandRecord {
 
     var isWin: Bool { win != nil }
 
-    /// 账本里的一行标题：「莉莉荣和 · 阿强点炮 · 满贯 5 翻」「这局流局」。
+    /// 账本里的一行标题：「莉莉荣和 · 阿强放铳 · 满贯 5 翻」「这局流局」。
     func title(in game: Game) -> String {
         let name = { (i: Int) in game.players[i].name }
         let sep = tr(" · ", "・", " · ")
@@ -18,7 +18,7 @@ extension HandRecord {
         case .win(let win):
             var parts = [
                 win.discarder.map {
-                    tr("\(name(win.winner))和 · \(name($0))点炮",
+                    tr("\(name(win.winner))荣和 · \(name($0))放铳",
                        "\(name(win.winner)) ロン（\(name($0))放銃）",
                        "\(name(win.winner)) Ron (\(name($0)))")
                 } ?? tr("\(name(win.winner))自摸", "\(name(win.winner)) ツモ", "\(name(win.winner)) Tsumo")
@@ -96,6 +96,48 @@ extension HandRecord {
 }
 
 extension Game {
+    /// 每家开局的点数。账本里存的是净得失，界面上按日麻的习惯加上这个数显示。
+    /// 空桌上写的起始点数（跟默认规则一样）。
+    static let startingPoints = GameRules.standard.startingPoints
+
+    /// 牌桌上每家现在的点数：起始点数加上每局得失（不含终局的头名赏和顺位马）。
+    func currentPoints(of player: Int) -> Int { currentPoints[player] }
+
+    /// 牌桌顶上的大字：「东 3 局」。打完了是「终局」。
+    var handLabelShort: String {
+        if isFinished { return tr("终局", "終局", "Final") }
+        let wind = prevalentWind(ofHand: displayHand).name
+        let kyoku = displayHand % 4 + 1
+        return tr("\(wind) \(kyoku) 局", "\(wind)\(kyoku)局", "\(wind) \(kyoku)")
+    }
+
+    /// 大字下面一行：「半庄 · 还剩 6 局」「东风战 · 打了 4 局」。
+    var progressLine: String {
+        let mode = rules.totalHands == 4 ? tr("东风战", "東風戦", "East only") : tr("半庄", "半荘", "Hanchan")
+        let rest = isFinished
+            ? tr("打了 \(playedHandsCount) 局", "全\(playedHandsCount)局", "\(playedHandsCount) hands")
+            : tr("还剩 \(remainingHands) 局", "残り\(remainingHands)局", "\(remainingHands) left")
+        return mode + tr(" · ", "・", " · ") + rest
+    }
+
+    /// 错和怎么赔（罚满贯）。知道是谁和错了就按庄闲说具体数，不知道就两种都说。
+    func chomboLine(offender: Int? = nil) -> String {
+        guard let offender, (0..<4).contains(offender) else {
+            return tr("罚满贯：闲家付庄家 4,000、另外两家各 2,000；庄家付三家各 4,000。这一局重打。",
+                      "満貫払い：子は親に4,000・子に各2,000、親は3人に各4,000。同じ局をやり直します。",
+                      "Mangan penalty: a non-dealer pays the dealer 4,000 and the others 2,000 each; the dealer pays 4,000 to each. The hand is replayed.")
+        }
+        let name = players[offender].name
+        if offender == dealer {
+            return tr("\(name)是庄家：付三家各 4,000 点，这一局重打。",
+                      "\(name)は親：3人に各4,000点、同じ局をやり直し。",
+                      "\(name) is the dealer: pays 4,000 to each; the hand is replayed.")
+        }
+        return tr("\(name)付庄家 4,000、另外两家各 2,000 点，这一局重打。",
+                  "\(name)は親に4,000・子に各2,000点、同じ局をやり直し。",
+                  "\(name) pays the dealer 4,000 and the others 2,000 each; the hand is replayed.")
+    }
+
     /// 「¥76」「−¥12.5」。
     func moneyText(_ points: Int) -> String {
         let value = money(forPoints: points)
@@ -165,7 +207,7 @@ extension Game {
                 : tr("闲家和牌按 4 倍基本点", "子ロンは基本点×4", "non-dealer Ron 4× base")
             let handPay = Payment.ceil100(base * (isDealer ? 6 : 4)) + honba * 300
             lines.append(tr(
-                "荣和：\(summary)，\(mult)进百位\(honbaText)，由点炮的\(players[discarder].name)付 \(handPay) 点。",
+                "荣和：\(summary)，\(mult)进百位\(honbaText)，由放铳的\(players[discarder].name)付 \(handPay) 点。",
                 "ロン和了：\(summary)、\(mult)（百点単位切り上げ）\(honbaText)。放銃した\(players[discarder].name)が \(handPay) 点を支払います。",
                 "Ron: \(summary), \(mult) rounded up to 100\(honbaText). \(players[discarder].name) pays \(handPay) pts."
             ))
@@ -243,9 +285,6 @@ extension GameRules {
         }
         if !includeDora {
             parts.append(tr("不计宝牌", "ドラなし", "No Dora"))
-        }
-        if falseWinPenalty != standard.falseWinPenalty {
-            parts.append(tr("错和赔 \(falseWinPenalty)", "チョンボ各\(falseWinPenalty)点", "Chombo \(falseWinPenalty)"))
         }
         if swapSeatsEachRound {
             parts.append(tr("每圈换座", "場風ごと席替え", "Swap Seats"))

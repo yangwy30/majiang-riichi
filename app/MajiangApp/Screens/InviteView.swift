@@ -3,7 +3,7 @@ import MajiangKit
 
 /// AI 认牌的邀请码：填码开启，或者看已经填的码、移除。码对不对由中转站说了算。
 /// 没码也能正常用：拍照后用离线认牌，读错的点一下改；也可以手动选牌。
-/// 样子跟开局页一样：大标题、一块白，底部一个黑色主按钮，不能点时按钮上写原因。
+/// 样子跟开局页一样：大标题、一张卡片，底部一个主按钮，不能点时按钮上写原因。
 struct InviteView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -126,7 +126,7 @@ private struct CodeCells: View {
                     .foregroundStyle(Theme.ink)
                     .frame(maxWidth: .infinity)
                     .frame(height: 60)
-                    .background(Theme.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(cursor == i ? Theme.ink : Theme.line, lineWidth: cursor == i ? 1.5 : 1)

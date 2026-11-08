@@ -2,7 +2,8 @@ import SwiftUI
 import PhotosUI
 import MajiangKit
 
-/// 拍照：页面本身就是取景器，谁和了的四个名字浮在上面，按快门直接识别。
+/// 拍照：整页就是取景器。下方一根胡桃木牌架，提示把 14 张牌摆在上面；快门是一张象牙白的牌。
+/// 谁和了、怎么和的不在这里选，拍完到核对页的小牌桌上点座位。
 struct CaptureView: View {
     @Environment(AppModel.self) private var model
     @Bindable var flow: RoundFlow
@@ -19,40 +20,40 @@ struct CaptureView: View {
     @State private var shots = 0
 
     var body: some View {
-        VStack(spacing: 0) {
-            winnerPicker
-                .padding(.top, 10)
+        ZStack {
+            viewfinder.ignoresSafeArea()
 
-            viewfinder
-                .padding(.top, 20)
+            VStack(spacing: 0) {
+                topBar
+                Spacer(minLength: 0)
+                if flow.photo == nil { rackGuide }
+                Spacer(minLength: 0)
+                // 邀请码不在这里提：拍照时只管拍。离线认牌这手要改牌时，核对页再说一句
+                Text(status ?? " ")
+                    .font(.system(size: 14))
+                    .foregroundStyle(flow.recognitionError == nil ? Color.white.opacity(0.8) : Color.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .frame(minHeight: 34)
+                    .padding(.horizontal, 24)
+                controls
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+            }
+            // iPhone Duo 内屏、横过来时不铺满：快门和两边的按钮不至于隔得太远
+            .frame(maxWidth: 560)
 
-            // 邀请码不在这里提：拍照时只管拍。离线认牌这手要改牌时，核对页再说一句
-            Text(status ?? " ")
-                .foregroundStyle(flow.recognitionError == nil ? Color.white.opacity(0.72) : Color.white)
-                .font(.system(size: 14))
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .frame(minHeight: 34)
-                .padding(.top, 10)
-
-            controls
-                .padding(.top, 8)
-                .padding(.bottom, 8)
+            if flow.isRecognizing && slow {
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+                    .frame(width: 80, height: 80)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
         }
-        .padding(.horizontal, 24)
-        // iPhone Duo 内屏、横过来时不铺满：快门和相册按钮不至于隔得太远，四个名字也不拉成长条
-        .frame(maxWidth: 640)
-        .frame(maxWidth: .infinity)
-        .background(Theme.darkroom.ignoresSafeArea())
         .foregroundStyle(.white)
-        .navigationTitle("谁和了？")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Theme.darkroom, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbar {
-            NavClose(color: .white, action: close)
-        }
+        .background(Theme.darkroom.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
         .photosPicker(isPresented: $choosingPhoto, selection: $pickerItem, matching: .images)
         .onChange(of: pickerItem) { _, item in
             guard let item else { return }
@@ -75,7 +76,7 @@ struct CaptureView: View {
             cameraOn = await camera.start()
             await model.preloadOnDeviceModel()
             #if DEBUG
-            // 截图用：`-demo-screen capture -auto-shoot` 进拍照页 1.5 秒后自动拍一张（演示数据），看核对页升上来、牌落下
+            // 截图用：`-demo-screen capture -auto-shoot` 进拍照页 1.5 秒后自动拍一张（演示数据），看核对页出来
             if model.demoScreen == .capture && ProcessInfo.processInfo.arguments.contains("-auto-shoot") && !autoShot {
                 autoShot = true
                 try? await Task.sleep(for: .seconds(1.5))
@@ -98,122 +99,126 @@ struct CaptureView: View {
         return flow.recognitionError
     }
 
-    private var winnerPicker: some View {
-        HStack(spacing: 8) {
-            ForEach(0..<4, id: \.self) { i in
-                // 不预先选谁：标题就在问「谁和了？」，没点也能拍，到核对页再选
-                let on = flow.winnerChosen && flow.winner == i
-                Button {
-                    flow.pickWinner(i)
-                } label: {
-                    Text(flow.game.players[i].name)
-                        .font(.system(size: 15, weight: .medium))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity, minHeight: 38)
-                        .foregroundStyle(on ? Theme.ink : .white)
-                        .background(on ? Color.white : Color.white.opacity(0.12), in: Capsule())
-                        .contentShape(Capsule())
+    /// 顶上：左边一个玻璃圆的关闭，中间一行标题。
+    private var topBar: some View {
+        ZStack {
+            Text(tr("拍和了的牌", "和了の手牌を撮影", "Snap the winning hand"))
+                .font(.system(size: 16, weight: .semibold))
+            HStack {
+                Button(action: close) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .glassCircle()
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityAddTraits(on ? .isSelected : [])
+                .accessibilityLabel(tr("取消", "キャンセル", "Cancel"))
+                Spacer()
             }
         }
-        .disabled(flow.isRecognizing)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
     }
 
     private var viewfinder: some View {
         ZStack {
             if let photo = flow.photo {
-                // 照片铺满取景框；放在 overlay 里，宽照片不会把整页撑宽（上面那排名字会被挤歪）
                 Color.clear.overlay {
                     Image(uiImage: photo)
                         .resizable()
                         .scaledToFill()
                 }
+                .clipped()
             } else if cameraOn {
                 CameraPreview(camera: camera)
             } else {
-                // 没有相机（模拟器）或没给权限：画一手示意牌
-                RadialGradient(colors: [Color(hex: 0x46443B), Color(hex: 0x2B2A25), Color(hex: 0x201F1B)],
-                               center: UnitPoint(x: 0.5, y: 0.45), startRadius: 0, endRadius: 320)
-                // 外屏这种窄取景框里放不下 20 宽的牌，换小一号
+                // 没有相机（模拟器）或没给权限：一片暗绿，像对着桌面
+                RadialGradient(colors: [Color(hex: 0x4F6B5E), Color(hex: 0x2B3A33), Color(hex: 0x151C18)],
+                               center: UnitPoint(x: 0.5, y: 0.55), startRadius: 0, endRadius: 420)
+            }
+        }
+    }
+
+    /// 取景提示：一句话、一排示意牌立在胡桃木牌架上，两头标着 1 和 14。
+    private var rackGuide: some View {
+        VStack(spacing: 14) {
+            VStack(spacing: 4) {
+                Text(cameraOn || model.effectiveRecognitionMode == .demo || model.demoScreen != nil
+                     ? tr("把 14 张牌摆上牌架", "14枚を牌架に並べる", "Line up all 14 tiles on the rack")
+                     : tr("这台设备没有相机，从左下角的相册选一张", "カメラがありません。左下のアルバムから選んでください", "No camera here. Pick a photo from the album"))
+                    .font(.system(size: 15, weight: .medium))
+                Text(tr("和的那张可以单独放右边", "和了牌は右に離して置いてもOK", "You can set the winning tile apart on the right"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.65))
+            }
+            .foregroundStyle(.white.opacity(0.92))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 24)
+            VStack(spacing: 0) {
                 ViewThatFits(in: .horizontal) {
                     sampleHand(tileWidth: 20)
                     sampleHand(tileWidth: 16)
                 }
-                .padding(.horizontal, 26)
-            }
-
-            if flow.photo == nil {
-                CornerBrackets()
-                    .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .padding(22)
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(.white.opacity(0.55), lineWidth: 1.5)
-                    .frame(height: 50)
-                    .padding(.horizontal, 18)
-                VStack {
+                .opacity(0.6)
+                RackBar()
+                    .frame(height: 16)
+                    .padding(.top, -3)
+                HStack {
+                    Text("1")
                     Spacer()
-                    Text(cameraOn || model.effectiveRecognitionMode == .demo || model.demoScreen != nil ? "手牌推倒排成一排，和的那张放最右"
-                         : "这台设备没有相机，从左下角的相册选一张")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 64)
+                    Text("14")
                 }
+                .font(Theme.score(10, weight: .regular))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 6)
+                .padding(.top, 6)
             }
-
-            if flow.isRecognizing && slow {
-                ProgressView()
-                    .controlSize(.large)
-                    .tint(.white)
-                    .frame(width: 80, height: 80)
-                    .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            }
+            .padding(.horizontal, 12)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     private func sampleHand(tileWidth: CGFloat) -> some View {
-        HStack(spacing: 2) {
-            ForEach(Array(Tile.parseList("11122334455667p").enumerated()), id: \.offset) { _, tile in
+        HStack(alignment: .bottom, spacing: 1) {
+            ForEach(Array(Tile.parseList("1112233445566p").enumerated()), id: \.offset) { _, tile in
                 TileFace(tile: tile, width: tileWidth, state: .dim)
             }
+            Color.clear.frame(width: tileWidth * 0.45, height: 1)
+            TileFace(tile: Tile(suit: .dots, rank: 7)!, width: tileWidth, state: .dim)
         }
     }
 
+    /// 左边相册、中间一张牌形的快门、右边手动输入。
     private var controls: some View {
-        ZStack {
-            HStack {
-                Button {
-                    choosingPhoto = true
-                } label: {
-                    Image(systemName: "photo")
-                        .font(.system(size: 20))
-                        .frame(width: 48, height: 48)
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.3)))
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("从相册选")
-                Spacer()
-                Button("手动输入") { flow.startManualEntry() }
-                    .buttonStyle(.text(.white.opacity(0.85)))
-            }
-            Button(action: shoot) {
-                Circle()
-                    .fill(.white)
-                    .padding(7)
-                    .overlay(Circle().strokeBorder(.white, lineWidth: 3))
-                    .frame(width: 76, height: 76)
+        HStack {
+            Button {
+                choosingPhoto = true
+            } label: {
+                Image(systemName: "photo.on.rectangle")
+                    .font(.system(size: 19))
+                    .frame(width: 54, height: 54)
+                    .glassCircle()
                     .contentShape(Circle())
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("拍照")
+            .accessibilityLabel(tr("从相册选", "アルバムから選ぶ", "Choose from album"))
+            Spacer()
+            Button(action: shoot) {
+                TileShutter()
+            }
+            .accessibilityLabel(tr("拍照", "撮影", "Take photo"))
+            Spacer()
+            Button { flow.startManualEntry() } label: {
+                Image(systemName: "square.grid.3x3")
+                    .font(.system(size: 19))
+                    .frame(width: 54, height: 54)
+                    .glassCircle()
+                    .contentShape(Circle())
+            }
+            .accessibilityLabel(tr("手动输入", "手入力", "Enter manually"))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressFade())
+        .padding(.horizontal, 28)
         .disabled(flow.isRecognizing)
         .opacity(flow.isRecognizing ? 0.4 : 1)
     }
@@ -242,25 +247,34 @@ struct CaptureView: View {
     }
 }
 
-/// 取景框四个角。
-private struct CornerBrackets: Shape {
-    var length: CGFloat = 26
-    var radius: CGFloat = 10
+/// 胡桃木牌架：一根横条，上亮下暗。
+private struct RackBar: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .fill(LinearGradient(colors: Theme.walnut, startPoint: .topLeading, endPoint: .bottomTrailing))
+            .overlay(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(LinearGradient(colors: [.white.opacity(0.25), .clear, .black.opacity(0.25)], startPoint: .top, endPoint: .bottom))
+            )
+            .shadow(color: .black.opacity(0.45), radius: 9, y: 8)
+    }
+}
 
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let corners: [(CGPoint, CGFloat, CGFloat)] = [
-            (CGPoint(x: rect.minX, y: rect.minY), 1, 1),
-            (CGPoint(x: rect.maxX, y: rect.minY), -1, 1),
-            (CGPoint(x: rect.minX, y: rect.maxY), 1, -1),
-            (CGPoint(x: rect.maxX, y: rect.maxY), -1, -1),
-        ]
-        for (corner, dx, dy) in corners {
-            path.move(to: CGPoint(x: corner.x, y: corner.y + dy * length))
-            path.addLine(to: CGPoint(x: corner.x, y: corner.y + dy * radius))
-            path.addQuadCurve(to: CGPoint(x: corner.x + dx * radius, y: corner.y), control: corner)
-            path.addLine(to: CGPoint(x: corner.x + dx * length, y: corner.y))
-        }
-        return path
+/// 快门：一张竖着的象牙白牌，底下露黄色牌背，牌面上一个相机。
+private struct TileShutter: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        Image(systemName: "camera")
+            .font(.system(size: 26, weight: .medium))
+            .foregroundStyle(Theme.tileInk)
+            .frame(width: 70, height: 74)
+            .frame(width: 70, height: 92, alignment: .top)
+            .background(
+                LinearGradient(stops: [.init(color: Theme.tileFace, location: 0.8), .init(color: Theme.tileBack, location: 0.8)],
+                               startPoint: .top, endPoint: .bottom),
+                in: shape)
+            .overlay(shape.strokeBorder(.white.opacity(0.35), lineWidth: 4).padding(-4))
+            .shadow(color: .black.opacity(0.4), radius: 10, y: 8)
+            .contentShape(shape)
     }
 }

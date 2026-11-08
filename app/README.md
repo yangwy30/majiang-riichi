@@ -13,7 +13,7 @@ app/
 
 - **App**：用 Xcode 打开 `app/Majiang.xcodeproj`，选一个 iPhone 模拟器运行。真机要在 Signing 里选自己的开发者 Team。
   识别方式默认「自动」：填了 Gemini Key 又装了端侧模型就双读，只有一样就用那一样，**两样都没有才用演示数据**。演示数据不看照片，按顺序给出三手示例牌（清一色带一张待确认的牌、带碰和暗杠的混一色、认错一张不成和的花龙），核对页标题会写「演示数据，没看你的照片」。
-- **用 Gemini 认牌**：开发版长按首页标题打开设置 → 填 Gemini API Key（只存在手机钥匙串里）。识别方式保持「自动」就会用上；设置页「现在用」显示实际走哪一路。正式版没有设置页。
+- **用 Gemini 认牌**：开发版在「更多」tab 点「开发设置」 → 填 Gemini API Key（只存在手机钥匙串里）。识别方式保持「自动」就会用上；设置页「现在用」显示实际走哪一路。正式版没有设置页。
   - 省掉粘贴：编译前在 Mac 上 `mkdir -p app/MajiangApp/Resources/DevSecrets && cp ~/.config/gemini/api_key app/MajiangApp/Resources/DevSecrets/GeminiDevKey.txt`，开发版第一次打开会自动存进钥匙串。这个目录已被 `.gitignore` 挡住；文件会打进 App 包，所以**打 TestFlight / 上架包之前一定删掉它**。
 - **端侧模型 + 双读**：先按下面「端侧模型」把模型放进 App，再填 Key，「自动」就是双读（也可以手动选「只用端侧模型」，不用联网）。
 - **截图**：开发版启动参数 `-demo-screen <页面>` 用临时假数据直接停在某一页，见 [用户流程设计](../docs/user-flow.md#截图怎么更新)。
@@ -27,7 +27,7 @@ app/
 | `MajiangKit/Sources/MajiangKit/Scoring` | `FanCalculator` 纯 Swift 算役、翻和符并取高点，`Dora` 按指示牌和赤五数宝牌，`WinAssistant` 不成和时给改牌建议，`SpecialWin` 特殊情况的置灰规则 |
 | `MajiangKit/Sources/MajiangKit/Game` | 牌局：场风、自风和庄家（连庄、本场、立直供托），自摸、荣和、双响，荒牌流局、流局满贯、途中流局，错和，手动记分，击飞，头名赏和顺位马，改或删以前的局后重算，最少转账，JSON 存档 |
 | `MajiangKit/Sources/MajiangKit/Recognition` | `TileRecognizer` 协议和几种实现，见下 |
-| `MajiangApp` | [用户流程](../docs/user-flow.md) 的页面：首页、开局、牌桌（也是账本）、拍照（内嵌取景器）、核对、结果（弹出层）、结算，加改局、家规（`HouseRulesForm`、`GameRulesSheet`）、填邀请码（`InviteView`）、规则说明、直接改分、备份和开发版设置。视觉规范「墨与朱」在 `Support/Theme.swift` |
+| `MajiangApp` | 四个 tab（牌局、记录、役表、更多）和推进来的页：开局、牌桌（也是账本）、拍照（内嵌取景器）、核对、结果（弹出层）、结算，加改局、家规（`HouseRulesForm`、`GameRulesSheet`）、填邀请码（`InviteView`）、规则说明、直接改分、备份和开发版设置。视觉规范「胡桃木牌桌」在 `Support/Theme.swift`，页面颜色在 `Assets.xcassets` 的 `Table*` |
 
 ### 识别
 
@@ -82,7 +82,7 @@ swift test --filter OnDeviceEvaluationTests
 
 - **发到微信群**：牌桌右上角和结算页把账本渲染成一张图（`Support/ShareCard.swift`，360 点宽、3 倍），走系统分享面板；结算页另有「复制文字版」。没有服务器，其他牌友在群里看图。
 - **iCloud 同步**（`Support/CloudSync.swift`）：CloudKit 私有库 `iCloud.com.yangwy30.majiang.riichi`，自定义 zone `Majiang`，每场牌局一条 `Game` 记录（字段 `json` 是那场的 JSON），常用牌友和上次规则一条 `Meta`。打开、回到前台、保存后 2 秒同步：先收再传。该传哪些、两边都改过时留哪份由 MajiangKit 的 `SyncBook` 决定（有测试）。
-- **导出 / 导入**：首页「备份与换手机」，导出全部牌局为 JSON 文件，导入时用 `GameArchive.merge` 只加不删。
+- **导出 / 导入**：「更多」tab 的「备份与换手机」，导出全部牌局为 JSON 文件，导入时用 `GameArchive.merge` 只加不删。
 - 真机要用开发者 Team 93RUQ2A6KX 签名，iCloud 容器要在开发者账号里存在（第一次真机构建时 Xcode 自动注册）。
 - **记录类型要先发布到生产环境**：从 Xcode 装的开发版用 CloudKit 开发环境，第一次保存时会自动建 `Game`、`Meta`；TestFlight 和 App Store 版用生产环境，生产环境不会自动建，没发布时会报 “Cannot create new type Game in production schema”。表结构存在 `CloudKit/schema.ckdb`。改了记录类型或字段后：先确认开发环境里有（用开发版同步一次，或 `xcrun cktool import-schema --team-id 93RUQ2A6KX --container-id iCloud.com.yangwy30.majiang.riichi --environment development --file app/CloudKit/schema.ckdb`，要先 `xcrun cktool save-token`），再到 [CloudKit Console](https://icloud.developer.apple.com/) → 这个容器 → Deploy Schema Changes 发布到生产。
 

@@ -1,7 +1,7 @@
 import SwiftUI
 import MajiangKit
 
-/// 结果：从下往上弹出的一层。大番数、每个番种一句白话、这局谁付多少。
+/// 结果：从下往上弹出的一层。翻符和点数大字，役种一行一个，这局谁付多少。
 struct ResultSheet: View {
     var flow: RoundFlow
     var finish: (HandOutcome) -> Void
@@ -14,88 +14,79 @@ struct ResultSheet: View {
                 ContentUnavailableView("这手牌还和不了", systemImage: "exclamationmark.circle")
             }
         }
+        .foregroundStyle(Theme.ink)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(30)
+        .presentationCornerRadius(16)
         .presentationBackground(Theme.paper)
     }
 
     private func content(_ record: WinRecord, _ deltas: [Int]) -> some View {
         let game = flow.game
         let name = { (i: Int) in game.players[i].name }
+        let paid = game.rules.paidFan(record)
+        let limit = Payment.limitName(han: paid, fu: record.fu, kiriageMangan: game.rules.kiriageMangan)
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // 谁和、怎么和的是记错最常见的地方：墨色写清楚，点一下收起结果回核对页改
-                Button { flow.showResult = false } label: {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(record.discarder.map {
-                            tr("\(name(record.winner)) · \(name($0))点炮",
-                               "\(name(record.winner))・\(name($0))放銃",
-                               "\(name(record.winner)) · Ron (\(name($0)))")
-                        } ?? tr("\(name(record.winner)) · 自摸", "\(name(record.winner))・ツモ", "\(name(record.winner)) · Tsumo"))
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundStyle(Theme.ink)
-                        Text(tr("改 ›", "修正 ›", "Edit ›"))
+                // 顶上一块绿毡：谁怎么和的（点一下回核对页改）、赢多少、几翻几符
+                FeltBanner {
+                    VStack(spacing: 4) {
+                        Button { flow.showResult = false } label: {
+                            HStack(spacing: 6) {
+                                Text(record.discarder.map {
+                                    tr("\(name(record.winner)) · \(name($0))放铳",
+                                       "\(name(record.winner))・\(name($0))放銃",
+                                       "\(name(record.winner)) · Ron (\(name($0)))")
+                                } ?? tr("\(name(record.winner)) · 自摸", "\(name(record.winner))・ツモ", "\(name(record.winner)) · Tsumo"))
+                                Text(tr("改 ›", "修正 ›", "Edit ›")).opacity(0.6)
+                            }
                             .font(.system(size: 15))
-                            .foregroundStyle(Theme.gray)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("回到核对页改谁和了、怎么和的")
-                .padding(.top, 20)
-                let paid = game.rules.paidFan(record)
-                let limit = Payment.limitName(han: paid, fu: record.fu, kiriageMangan: game.rules.kiriageMangan)
-                HStack(alignment: .center, spacing: 12) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("\(record.totalFan)")
-                            .font(.system(size: 72, weight: .ultraLight).monospacedDigit())
-                            .tracking(-2)
-                        Text(tr("翻", "翻", "han")).font(Theme.serif(20))
-                        Text(tr("· \(record.fu) 符", "・\(record.fu)符", "· \(record.fu) fu"))
-                            .font(.system(size: 18, weight: .light).monospacedDigit())
-                            .foregroundStyle(Theme.gray)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 6) {
-                        if let limit {
-                            LimitStamp(text: limit, size: 16)
+                            .foregroundStyle(.white.opacity(0.85))
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("回到核对页改谁和了、怎么和的")
                         if record.winner < deltas.count {
                             Text(Theme.signed(deltas[record.winner]))
-                                .font(Theme.score(22, weight: .regular))
-                                .foregroundStyle(Theme.vermilion)
+                                .font(Theme.score(60, weight: .bold))
+                                .tracking(-1.5)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                                .shadow(color: .black.opacity(0.2), radius: 3, y: 2)
+                        }
+                        HStack(spacing: 10) {
+                            if let limit { LimitStamp(text: limit, size: 15, color: .white) }
+                            Text(tr("\(record.totalFan) 翻 · \(record.fu) 符", "\(record.totalFan)翻・\(record.fu)符", "\(record.totalFan) han · \(record.fu) fu"))
+                                .font(Theme.score(15, weight: .regular))
+                                .foregroundStyle(.white.opacity(0.85))
                         }
                     }
+                    .padding(.top, 28)
+                    .padding(.bottom, 32)
+                    .padding(.horizontal, 20)
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(Theme.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(Theme.lineSoft, lineWidth: 1)
-                )
-                .padding(.top, 4)
+                .padding(.horizontal, -20)
+
                 if paid < record.totalFan {
                     Text(tr("桌规封顶 \(game.rules.fanCap) 翻：\(record.totalFan) 翻按 \(game.rules.fanCap) 算",
                             "ルール上限 \(game.rules.fanCap)翻：\(record.totalFan)翻を\(game.rules.fanCap)翻として計算",
                             "Capped at \(game.rules.fanCap) han (\(record.totalFan) han counted as \(game.rules.fanCap))"))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Theme.lineSoft, in: Capsule())
-                        .frame(maxWidth: .infinity)
+                        .padding(.top, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
+                SectionLabel("役种与宝牌")
+                    .padding(.top, 22)
+                    .padding(.bottom, 6)
                 FanList(win: record)
-                    .padding(.top, 14)
 
                 SectionLabel("这局谁付多少")
                     .padding(.top, 22)
                     .padding(.bottom, 6)
-                DeltaGrid(game: game, deltas: deltas)
+                DeltaGrid(game: game, deltas: deltas, hand: game.displayHand)
                 Text(game.paymentExplanation(record, honba: game.currentHonba, pot: game.currentPot, deltas: deltas))
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
@@ -103,7 +94,7 @@ struct ResultSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 10)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 20)
         }
         .bottomBar {
             Button("记下") { finish(.win(record)) }

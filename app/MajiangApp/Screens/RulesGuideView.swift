@@ -4,11 +4,13 @@ import MajiangKit
 /// 规则和役种说明：给打立直日麻的人看的白话速查表。
 struct RulesGuideView: View {
     @Environment(\.dismiss) private var dismiss
+    /// 在「役表」tab 里：不套导航栏，也没有关闭。
+    var embedded = false
 
     private var basics: [(String, String)] {
         [
             (tr("怎么算点和钱", "点数と収支の計算方法", "How Points & Payments Work"),
-             tr("按翻数和符数算出基本点：闲家荣和由点炮者付 4 倍基本点，闲家自摸由庄家付 2 倍、另外两家闲家各付 1 倍；庄家和牌是闲家的 1.5 倍（荣和 6 倍，自摸三家各付 2 倍），全部按百位向上进位。5 翻起固定为满贯（闲 8000 / 庄 12000）、跳满、倍满、三倍满、役满。",
+             tr("按翻数和符数算出基本点：闲家荣和由放铳者付 4 倍基本点，闲家自摸由庄家付 2 倍、另外两家闲家各付 1 倍；庄家和牌是闲家的 1.5 倍（荣和 6 倍，自摸三家各付 2 倍），全部按百位向上进位。5 翻起固定为满贯（闲 8000 / 庄 12000）、跳满、倍满、三倍满、役满。",
                 "翻数と符から基本点を算出します。子のロンは放銃者が基本点×4、子のツモは親が×2・子2人が×1を支払い、親の和了は子の1.5倍（ロン×6、ツモは子3人が各×2）で、すべて100点単位に切り上げます。5翻以上は満貫（子8000 / 親12000）・跳満・倍満・三倍満・役満となります。",
                 "Base points are calculated from han and fu. For a non-dealer win, Ron is 4× base from the discarder, and Tsumo is 2× from the dealer and 1× from each non-dealer. Dealer wins are 1.5× larger (6× on Ron, 2× from each non-dealer on Tsumo), all rounded up to the nearest 100. 5+ han reach fixed limits: Mangan (8,000 / 12,000), Haneman, Baiman, Sanbaiman, and Yakuman.")),
             (tr("1 翻起和（无役不能和）", "1翻縛り（役なしは和了不可）", "1-Han Yaku Minimum"),
@@ -23,10 +25,10 @@ struct RulesGuideView: View {
              tr("立直、一发、门前清自摸和、平和、一杯口、二杯口、七对子只能在门前清（没吃、没碰、没明杠）时成立；三色同顺、一气通贯、混全带幺九、纯全带幺九、混一色、清一色在吃碰明杠后减 1 翻。",
                 "リーチ・一発・門前清自摸和・平和・一盃口・二盃口・七対子は門前清（鳴きなし）限定です。三色同順・一気通貫・チャンタ・純チャン・混一色・清一色は鳴くと1翻下がります。",
                 "Riichi, Ippatsu, Menzen Tsumo, Pinfu, Iipeiko, Ryanpeiko, and Chiitoitsu require a closed hand. Sanshoku, Ittsuu, Chanta, Junchan, Honitsu, and Chinitsu lose 1 han when open.")),
-            (tr("错和罚符", "チョンボ（錯和）罰符", "Chombo (False Win Penalty)"),
-             tr("推倒了却无役或凑不成和牌，赔另外三家各 3000 点，这一局接着打。",
-                "誤って手牌を倒した（役なし・不聴など）場合、他家3人に各3000点を支払い、その局をやり直します。",
-                "Declaring an invalid win (no yaku or incomplete hand) costs 3,000 pts to each of the other 3 players, and the hand is replayed.")),
+            (tr("错和罚满贯", "チョンボは満貫払い", "Chombo: Mangan Penalty"),
+             tr("推倒了却无役或凑不成和牌，按满贯反过来付：闲家付庄家 4,000、另外两家各 2,000；庄家付三家各 4,000。这一局重打，庄家、本场不变，桌上的立直棒留着。",
+                "誤って手牌を倒した（役なし・不聴など）場合は満貫払い：子は親に4,000・子に各2,000、親は3人に各4,000。同じ局をやり直し、親・本場・供託はそのまま。",
+                "An invalid win (no yaku or incomplete hand) pays a mangan: a non-dealer pays the dealer 4,000 and the others 2,000 each; the dealer pays 4,000 to each. The hand is replayed with the same dealer, honba and riichi sticks.")),
         ]
     }
 
@@ -37,55 +39,74 @@ struct RulesGuideView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(basics, id: \.0) { title, text in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(title).font(.system(size: 16, weight: .semibold))
-                            Text(text)
-                                .font(.system(size: 15))
+        if embedded {
+            list
+                .page()
+        } else {
+            NavigationStack {
+                list
+                    .page()
+                    .navigationTitle("立直规则与役种")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        NavClose("关闭") { dismiss() }
+                    }
+            }
+        }
+    }
+
+    private var list: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if embedded {
+                    PageTitle(title: tr("役表", "役一覧", "Yaku"), subtitle: nil)
+                }
+                ForEach(groups, id: \.points) { group in
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        if group.points == 13 {
+                            Text(tr("役满", "役満", "Yakuman")).font(Theme.glyph(22, semibold: true))
+                        } else {
+                            Text("\(group.points)").font(Theme.score(24, weight: .semibold))
+                            Text(tr("翻", "翻", "han")).font(Theme.glyph(15))
+                        }
+                    }
+                    .padding(.top, 24)
+                    .padding(.bottom, 4)
+                    Hairline()
+                    ForEach(group.fans, id: \.self) { fan in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(fan.name).font(.system(size: 16, weight: .medium))
+                            Text(fan.explanation)
+                                .font(.system(size: 14))
                                 .foregroundStyle(Theme.gray)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .padding(.vertical, 12)
-                    }
-
-                    ForEach(groups, id: \.points) { group in
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            if group.points == 13 {
-                                Text("役满").font(Theme.serif(24, semibold: true))
-                                Text("· 13 翻").font(.system(size: 15)).foregroundStyle(Theme.gray)
-                            } else {
-                                Text("\(group.points)").font(Theme.score(28))
-                                Text("翻").font(Theme.serif(15))
-                            }
-                        }
-                        .padding(.top, 28)
-                        .padding(.bottom, 4)
-                        ForEach(group.fans, id: \.self) { fan in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(fan.name).font(.system(size: 16, weight: .medium))
-                                Text(fan.explanation)
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(Theme.gray)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 11)
-                            .overlay(alignment: .top) { Hairline() }
-                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 10)
+                        .overlay(alignment: .bottom) { Hairline(color: Theme.lineSoft) }
                     }
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
+
+                let rulesTitle = tr("规则", "ルール", "Rules")
+                Text(rulesTitle)
+                    .font(Theme.heading(rulesTitle, size: 22))
+                    .padding(.top, 32)
+                    .padding(.bottom, 4)
+                Hairline()
+                ForEach(basics, id: \.0) { title, text in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title).font(.system(size: 16, weight: .semibold))
+                        Text(text)
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.gray)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.vertical, 12)
+                }
             }
-            .page()
-            .navigationTitle("立直规则与役种")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                NavClose("关闭") { dismiss() }
-            }
+            .padding(.horizontal, 20)
+            .padding(.top, embedded ? 20 : 0)
+            .padding(.bottom, 24)
         }
     }
 }

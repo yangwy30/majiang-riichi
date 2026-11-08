@@ -1,83 +1,62 @@
 import SwiftUI
 import MajiangKit
 
-/// 首页：没打完的牌局、以前的牌局、开一局。有没打完的牌局时 App 直接打开牌桌，这里是返回后看到的。
-struct HomeView: View {
+/// 四个 tab：牌局、记录、役表、更多。推进来的页（开局、结算、这一局）盖住 tab 栏。
+struct MainTabs: View {
     @Environment(AppModel.self) private var model
-    @State private var showGuide = false
-    @State private var showSettings = false
-    @State private var showBackup = false
-    @State private var showInvite = false
-    @State private var showMore = false
-    /// 「更多」页里点了哪一项：等「更多」收下去再打开那一页，两层弹出不叠在一起。
-    @State private var moreTarget: MoreTarget?
-
-    private var isEmpty: Bool { model.archive.games.isEmpty }
 
     var body: some View {
-        Group {
-            if isEmpty {
-                EmptyHome(more: moreMenu, openGuide: { showGuide = true }, openSettings: { showSettings = true },
-                          openBackup: { showBackup = true }, start: { model.path.append(.newGame) })
-            } else {
-                list
-            }
+        @Bindable var model = model
+        TabView(selection: $model.selectedTab) {
+            GameTab()
+                .tabItem { Label(tr("牌局", "対局", "Table"), systemImage: "square.grid.2x2") }
+                .tag(AppTab.game)
+            HistoryView()
+                .tabItem { Label(tr("记录", "履歴", "History"), systemImage: "list.bullet.rectangle") }
+                .tag(AppTab.history)
+            RulesGuideView(embedded: true)
+                .tabItem { Label(tr("役表", "役一覧", "Yaku"), systemImage: "character.book.closed") }
+                .tag(AppTab.guide)
+            MoreView()
+                .tabItem { Label(tr("更多", "その他", "More"), systemImage: "slider.horizontal.3") }
+                .tag(AppTab.more)
         }
-        .page()
+        .tint(Theme.positive)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showGuide) { RulesGuideView() }
-        .sheet(isPresented: $showBackup) { BackupView() }
-        .sheet(isPresented: $showInvite) { InviteView() }
-        .sheet(isPresented: $showMore, onDismiss: openMoreTarget) {
-            MoreSheet(showsInvite: model.usesProxy || model.demoScreen == .invite || model.demoScreen == .more,
-                      inviteOn: model.inviteCode != nil,
-                      backupLine: backupLine,
-                      currentLang: model.currentLang,
-                      onCycleLanguage: cycleLanguage) { target in
-                moreTarget = target
-                showMore = false
-            }
-        }
-        .onAppear {
-            if model.demoScreen == .backup { showBackup = true }
-            if model.demoScreen == .invite { showInvite = true }
-            if model.demoScreen == .more { showMore = true }
-        }
-        #if DEBUG
-        .sheet(isPresented: $showSettings) { SettingsView() }
-        #endif
     }
+}
 
-    private var list: some View {
+/// 第一个 tab：有没打完的牌局就是牌桌本身，没有就是开一局。
+private struct GameTab: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        if let game = model.archive.activeGame ?? model.justFinishedGameID.flatMap(model.game) {
+            TableView(gameID: game.id, isRoot: true)
+                .id(game.id)
+        } else {
+            EmptyGameView()
+        }
+    }
+}
+
+/// 第一次打开、或者打完一场之后：空桌加一个大按钮。
+private struct EmptyGameView: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                header
-
-                if let game = model.archive.activeGame {
-                    SectionLabel("没打完")
-                        .padding(.top, 44)
-                        .padding(.bottom, 12)
-                    Button {
-                        model.path.append(.table(game.id))
-                    } label: {
-                        ActiveGameCard(game: game)
-                    }
-                    .buttonStyle(.plain)
+                PageTitle(title: tr("日麻算番", "麻雀カメラ計算", "Riichi Scorer"),
+                          subtitle: tr("拍一下和了的牌，翻符和点数都算好",
+                                       "和了の手牌を撮るだけで翻符と点数を計算",
+                                       "Snap the winning hand. Han, fu and points done."))
+                TableBoard.empty
+                    .padding(.top, 24)
+                TableActions(symbol: "plus", title: tr("开一局", "対局を始める", "Start a game"), secondary: nil) {
+                    model.path.append(.newGame)
                 }
-
-                if !model.archive.finishedGames.isEmpty {
-                    SectionLabel("以前的")
-                        .padding(.top, 36)
-                        .padding(.bottom, 4)
-                    ForEach(model.archive.finishedGames) { game in
-                        Button {
-                            model.path.append(.settle(game.id))
-                        } label: {
-                            HistoryRow(game: game)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                .padding(.top, 24)
 
                 if let error = model.loadError {
                     Text(error)
@@ -86,219 +65,98 @@ struct HomeView: View {
                         .padding(.top, 16)
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 40)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 24)
         }
-        .bottomBar {
-            Button("开一局") { model.path.append(.newGame) }
-                .buttonStyle(.primary)
-        }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(tr("日麻算番", "麻雀カメラ計算", "Riichi Scorer"))
-                    .font(.system(size: 34, weight: .semibold))
-                    .tracking(-0.5)
-                    #if DEBUG
-                    // 开发版的设置（识别方式、API Key）藏在长按标题里，正式版没有设置页
-                    .onLongPressGesture { showSettings = true }
-                    #endif
-                Spacer()
-                moreMenu
-            }
-            // 记过几手就不用再说 App 是干什么的
-            if !model.isSeasoned {
-                HStack(spacing: 8) {
-                    RiichiStickIcon(width: 30, height: 6)
-                    Text("打完一手，拍一下和牌的人的牌，App 帮你算番记账。")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.gray)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-
-    /// 右上角的「更多」：灰字，点开从底下升起一页（App 自己的样式，不用系统菜单）。
-    /// 第一次打开的空首页也有，审核员和新用户一打开就能找到填邀请码的地方。
-    private var moreMenu: some View {
-        Button { showMore = true } label: {
-            Text("更多")
-                .font(.system(size: 16))
-                .foregroundStyle(Theme.gray)
-                .fixedSize()
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// 「备份与换手机」那行下面的一句：iCloud 开没开。
-    private var backupLine: String {
-        model.cloud.enabled
-            ? tr("iCloud 同步已打开", "iCloud同期オン", "iCloud Sync is on")
-            : tr("导出、导入牌局，或者打开 iCloud 同步", "対局データの書き出し・読み込み・iCloud同期", "Export, import games, or enable iCloud Sync")
-    }
-
-    private func cycleLanguage() {
-        let all = AppLang.allCases
-        let idx = all.firstIndex(of: model.currentLang) ?? 0
-        model.appLanguage = all[(idx + 1) % all.count].rawValue
-    }
-
-    private func openMoreTarget() {
-        switch moreTarget {
-        case .guide: showGuide = true
-        case .backup: showBackup = true
-        case .invite: showInvite = true
-        case nil: break
-        }
-        moreTarget = nil
+        .page()
     }
 }
 
-private enum MoreTarget {
-    case guide, backup, invite
-}
+/// 牌桌下面的一排操作：主操作是毡绿胶囊（带图标），旁边一个玻璃胶囊。点下去轻震一下。
+struct TableActions: View {
+    var symbol: String
+    var title: String
+    var secondary: String?
+    var action: () -> Void
+    var secondaryAction: () -> Void = {}
 
-/// 「更多」：纸白底，一项一行，名字下面一句说明，右边一个 ›。跟账本、家规一样是细线列表。
-private struct MoreSheet: View {
-    var showsInvite: Bool
-    var inviteOn: Bool
-    var backupLine: String
-    var currentLang: AppLang
-    var onCycleLanguage: () -> Void
-    var pick: (MoreTarget) -> Void
+    @State private var taps = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("更多")
-                .font(.system(size: 20, weight: .semibold))
-                .padding(.top, 28)
-                .padding(.bottom, 8)
-            row(tr("役与点数怎么算", "役と点数の計算方法", "Yaku & Scoring Guide"),
-                tr("立直日麻的役种和点数收付，都是白话", "リーチ麻雀の役一覧と点数早見表", "Plain-language guide to Riichi yaku and payments"),
-                .guide, last: false)
-            row(tr("备份与换手机", "バックアップ・機種変更", "Backup & Restore"), backupLine, .backup, last: false)
-            Button(action: onCycleLanguage) {
-                VStack(spacing: 0) {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(tr("语言 / 言語 / Language", "言語 / Language / 语言", "Language / 言語 / 语言")).font(.system(size: 17))
-                            Text(tr("点一下切换：中文 · 日本語 · English", "タップで切替：日本語・English・中文", "Tap to switch: English · 日本語 · 中文"))
-                                .font(.system(size: 14))
-                                .foregroundStyle(Theme.gray)
-                        }
-                        Spacer(minLength: 8)
-                        Text(currentLang.displayName)
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Theme.gray)
-                    }
-                    .frame(minHeight: 72)
-                    if showsInvite { Hairline() }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            if showsInvite {
-                row(inviteOn ? tr("AI 认牌 · 已开启", "AI牌認識・有効", "AI Recognition · Active") : tr("AI 认牌", "AI牌認識", "AI Recognition"),
-                    inviteOn ? tr("看邀请码，或者移除", "招待コードの確認・削除", "View or remove invite code") : tr("有邀请码就能开启，认牌更准", "招待コードでAI高精度認識を有効化", "Enter invite code for higher accuracy"),
-                    .invite, last: true)
-            }
-        }
-        .padding(.horizontal, 24)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .foregroundStyle(Theme.ink)
-        .presentationDetents([.height(showsInvite ? 368 : 294)])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(28)
-        .presentationBackground(Theme.paper)
-    }
-
-    /// 最后一行底下不画线，免得线下面空一截。
-    private func row(_ title: String, _ detail: String, _ target: MoreTarget, last: Bool) -> some View {
-        Button { pick(target) } label: {
-            VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(title).font(.system(size: 17))
-                        Text(detail)
-                            .font(.system(size: 14))
-                            .foregroundStyle(Theme.gray)
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.faint)
-                }
-                .frame(minHeight: 72)
-                if !last { Hairline() }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct ActiveGameCard: View {
-    var game: Game
-
-    private var shortHandBadge: String {
-        let hand = game.displayHand
-        let wind = game.prevalentWind(ofHand: hand).name
-        let num = ["一", "二", "三", "四"][hand % 4]
-        let base = tr("\(wind)\(num)局", "\(wind)\(num)局", "\(wind) \(hand % 4 + 1)")
-        guard game.currentHonba > 0 else { return base }
-        return base + tr(" · \(game.currentHonba)本场", "・\(game.currentHonba)本場", " · \(game.currentHonba) Honba")
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center, spacing: 10) {
-                Text(shortHandBadge)
-                    .font(.system(size: 14, weight: .semibold))
+        HStack(spacing: 10) {
+            Button {
+                taps += 1
+                action()
+            } label: {
+                Label(title, systemImage: symbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 54)
                     .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 5)
-                    .background(Theme.ink, in: Capsule())
-                if game.currentPot > 0 {
-                    HStack(spacing: 4) {
-                        RiichiStickIcon(width: 24, height: 6)
-                        Text("×\(game.currentPot / 1000)")
-                            .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(Theme.vermilion)
-                    }
-                }
-                Spacer()
-                Text("继续 ›").font(.system(size: 15)).foregroundStyle(Theme.gray)
+                    .background(Theme.fill, in: Capsule())
+                    .shadow(color: .black.opacity(0.18), radius: 10, y: 6)
+                    .contentShape(Capsule())
             }
-            HStack(alignment: .top, spacing: 8) {
-                ForEach(0..<4, id: \.self) { i in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(game.players[i].name)
-                            .font(.system(size: 14))
-                            .foregroundStyle(Theme.gray)
-                            .lineLimit(1)
-                        Text(Theme.signed(game.scores[i]))
-                            .font(Theme.score(24))
-                            .foregroundStyle(Theme.scoreColor(game.scores[i]))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            .buttonStyle(PressFade())
+            if let secondary {
+                Button {
+                    taps += 1
+                    secondaryAction()
+                } label: {
+                    Text(secondary)
+                        .font(.system(size: 16, weight: .semibold))
+                        .padding(.horizontal, 22)
+                        .frame(minHeight: 54)
+                        .glassCapsule()
+                        .contentShape(Capsule())
                 }
+                .buttonStyle(PressFade())
             }
         }
-        .padding(.vertical, 20)
-        .block(radius: 22)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Theme.line, lineWidth: 1)
-        )
-        .contentShape(Rectangle())
+        .sensoryFeedback(.impact(weight: .medium), trigger: taps)
+    }
+}
+
+struct PressFade: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.8 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+/// 第二个 tab：打完的牌局。
+struct HistoryView: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                PageTitle(title: tr("以前的牌局", "過去の対局", "Past games"), subtitle: nil)
+                    .padding(.bottom, 12)
+                if model.archive.finishedGames.isEmpty {
+                    Text(tr("打完的牌局会放在这里，点开能看名次和转账。",
+                            "終わった対局はここに残ります。順位と精算を確認できます。",
+                            "Finished games appear here, with rankings and settlements."))
+                        .font(.system(size: 15))
+                        .foregroundStyle(Theme.gray)
+                        .padding(.top, 8)
+                }
+                ForEach(model.archive.finishedGames) { game in
+                    Button {
+                        model.path.append(.settle(game.id))
+                    } label: {
+                        HistoryRow(game: game)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 24)
+        }
+        .page()
     }
 }
 
@@ -334,171 +192,99 @@ private struct HistoryRow: View {
     }
 }
 
-/// 第一次打开、还没有任何牌局时的首页：一句话加三步，说清这个 App 是干什么的。
-private struct EmptyHome<More: View>: View {
-    /// 右上角的「更多」菜单（跟有牌局时的首页同一个）。
-    var more: More
-    var openGuide: () -> Void
-    var openSettings: () -> Void
-    var openBackup: () -> Void
-    var start: () -> Void
+/// 第四个 tab：语言、备份、AI 认牌。
+struct MoreView: View {
+    @Environment(AppModel.self) private var model
+    @State private var showBackup = false
+    @State private var showInvite = false
+    @State private var showSettings = false
+
+    private var showsInvite: Bool { model.usesProxy || model.demoScreen == .invite || model.demoScreen == .more }
+
+    private var language: Binding<AppLang> {
+        Binding(get: { model.currentLang }, set: { model.appLanguage = $0.rawValue })
+    }
+
+    /// 「备份与换手机」那行下面的一句：iCloud 开没开。
+    private var backupLine: String {
+        model.cloud.enabled
+            ? tr("iCloud 同步已打开", "iCloud同期オン", "iCloud Sync is on")
+            : tr("导出、导入牌局，或者打开 iCloud 同步", "対局データの書き出し・読み込み・iCloud同期", "Export, import games, or enable iCloud Sync")
+    }
+
+    private var version: String {
+        let info = Bundle.main.infoDictionary
+        return "\(info?["CFBundleShortVersionString"] as? String ?? "1.0") (\(info?["CFBundleVersion"] as? String ?? "1"))"
+    }
 
     var body: some View {
-        GeometryReader { geo in
-            // 安全区以下留 38，离屏幕顶约 100；SE、iPhone Duo 外屏这种矮屏只留 22，三步也排紧一点，免得第三步被按钮切掉
-            let short = geo.size.height < 560
-            let topInset: CGFloat = short ? 22 : 34
-            ScrollView {
-                // 品牌标在顶上；标题和步骤作为一块往下放，剩下的空白上 : 下 ≈ 5 : 3，两段都至少 32（矮屏 20）
-                FiveThreeLayout(height: geo.size.height - topInset, minGap: short ? 18 : 28) {
-                    HStack(alignment: .center) {
-                        brand
-                        Spacer()
-                        more
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                PageTitle(title: tr("更多", "その他", "More"), subtitle: nil)
+
+                SectionLabel(tr("语言", "言語", "Language"))
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+                SegmentedSwitch(options: AppLang.allCases.map { ($0, $0.displayName) }, selection: language)
+
+                VStack(spacing: 0) {
+                    row(tr("备份与换手机", "バックアップ・機種変更", "Backup & Restore"), backupLine) { showBackup = true }
+                    if showsInvite {
+                        Hairline(color: Theme.lineSoft)
+                        row(model.inviteCode != nil ? tr("AI 认牌 · 已开启", "AI牌認識・有効", "AI Recognition · Active") : tr("AI 认牌", "AI牌認識", "AI Recognition"),
+                            model.inviteCode != nil ? tr("看邀请码，或者移除", "招待コードの確認・削除", "View or remove invite code") : tr("有邀请码就能开启，认牌更准", "招待コードでAI高精度認識を有効化", "Enter invite code for higher accuracy")) {
+                            showInvite = true
+                        }
                     }
-                    VStack(alignment: .leading, spacing: 0) {
-                        headline
-                        steps(rowPadding: short ? 12 : 16).padding(.top, short ? 20 : 28)
-                    }
+                    #if DEBUG
+                    Hairline(color: Theme.lineSoft)
+                    // 开发版的设置（识别方式、API Key），正式版没有
+                    row("开发设置", "识别方式、API Key") { showSettings = true }
+                    #endif
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, topInset)
-            }
-        }
-        .bottomBar {
-            Button("开一局", action: start)
-                .buttonStyle(.primary)
-            Button("第一次打日麻？先看看役和点数怎么算", action: openGuide)
-                .buttonStyle(.text(size: 14))
-                .padding(.top, 10)
-            // 新手机上没装 iCloud 同步时，从旧手机导出的文件导入
-            Button("换了手机？导入以前的记录", action: openBackup)
-                .buttonStyle(.text(size: 14))
-        }
-    }
-}
+                .block()
+                .padding(.top, 24)
 
-private extension EmptyHome {
-    var brand: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Theme.ink)
-                    .frame(width: 32, height: 32)
-                Text("立")
-                    .font(Theme.serif(16))
-                    .foregroundStyle(.white)
-            }
-            Text(tr("日麻算番", "麻雀カメラ計算", "Riichi Scorer")).font(.system(size: 17, weight: .semibold))
-        }
-        .accessibilityElement(children: .combine)
-        #if DEBUG
-        // 开发版的设置（识别方式、API Key）藏在长按品牌标里，正式版没有设置页
-        .onLongPressGesture { openSettings() }
-        #endif
-    }
-
-    var headline: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("拍一下，")
-                Text("番和钱都算好。")
-            }
-            .font(Theme.serif(32, semibold: true))
-            HStack(spacing: 8) {
-                RiichiStickIcon(width: 36, height: 7)
-                Text(tr("日本立直麻将 · 拍照算点与四人记账", "リーチ麻雀・カメラ点数計算＆4人スコア帳", "Japanese Riichi Mahjong · Camera Scorer & Ledger"))
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.gray)
-            }
-        }
-    }
-
-    func steps(rowPadding: CGFloat) -> some View {
-        VStack(spacing: 10) {
-            StepRow(number: "一", title: "拍", detail: "和牌的人把牌推倒，拍一张", padding: rowPadding) {
-                HStack(spacing: 2) {
-                    ForEach(Array(Tile.parseList("12305p").enumerated()), id: \.offset) { _, tile in
-                        TileFace(tile: tile, width: 16)
-                    }
-                }
-            }
-            StepRow(number: "二", title: "算", detail: "认出牌，算役、翻、符与点数", padding: rowPadding) {
-                HStack(alignment: .center, spacing: 6) {
-                    Text(tr("8翻", "8翻", "8 han"))
-                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
-                    LimitStamp(text: tr("倍满", "倍満", "Baiman"), size: 13)
-                }
-            }
-            StepRow(number: "三", title: "记", detail: "谁给谁多少点，自动记账", padding: rowPadding) {
-                VStack(alignment: .trailing, spacing: 0) {
-                    Text("+16000").foregroundStyle(Theme.vermilion)
-                    Text("−8000").foregroundStyle(Theme.ink)
-                }
-                .font(Theme.score(14, weight: .regular))
-            }
-        }
-    }
-}
-
-/// 两块竖排：第一块贴顶，第二块放在剩下的空白里，上方 : 下方 ≈ 5 : 3，两段都至少 `minGap`。
-/// 屏幕太矮时整体比 `height` 高，外面的 ScrollView 可以滚。
-private struct FiveThreeLayout: Layout {
-    var height: CGFloat
-    var minGap: CGFloat = 32
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? 0
-        let content = subviews.reduce(0) { $0 + $1.sizeThatFits(ProposedViewSize(width: width, height: nil)).height }
-        return CGSize(width: width, height: max(height, content + 2 * minGap))
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        guard subviews.count == 2 else { return }
-        let p = ProposedViewSize(width: bounds.width, height: nil)
-        let top = subviews[0].sizeThatFits(p).height
-        let block = subviews[1].sizeThatFits(p).height
-        let free = bounds.height - top - block
-        let below = max(minGap, free * 3 / 8)
-        let above = max(minGap, free - below)
-        subviews[0].place(at: bounds.origin, proposal: p)
-        subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + top + above), proposal: p)
-    }
-}
-
-/// 三步里的一张卡片：深胜色小方印、标题和说明、右边一个小样。
-private struct StepRow<Sample: View>: View {
-    var number: String
-    var title: LocalizedStringKey
-    var detail: LocalizedStringKey
-    /// 每行上下的留白，矮屏小一点。
-    var padding: CGFloat = 16
-    @ViewBuilder var sample: Sample
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(number)
-                .font(Theme.serif(14, semibold: true))
-                .foregroundStyle(.white)
-                .frame(width: 26, height: 26)
-                .background(Theme.ink, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 16, weight: .semibold))
-                Text(detail)
+                Text(tr("日麻算番 \(version) · 不用注册，没有广告",
+                        "麻雀カメラ計算 \(version)・登録不要、広告なし",
+                        "Riichi Scorer \(version) · No sign-up, no ads"))
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.gray)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                    .foregroundStyle(Theme.faint)
+                    .padding(.top, 20)
             }
-            Spacer(minLength: 8)
-            sample.accessibilityHidden(true)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 24)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, padding)
-        .background(Theme.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Theme.lineSoft, lineWidth: 1)
-        )
+        .page()
+        .sheet(isPresented: $showBackup) { BackupView() }
+        .sheet(isPresented: $showInvite) { InviteView() }
+        #if DEBUG
+        .sheet(isPresented: $showSettings) { SettingsView() }
+        #endif
+        .onAppear {
+            if model.demoScreen == .backup { showBackup = true }
+            if model.demoScreen == .invite { showInvite = true }
+        }
+    }
+
+    private func row(_ title: String, _ detail: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.system(size: 16))
+                    Text(detail)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.gray)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.faint)
+            }
+            .frame(minHeight: 66)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

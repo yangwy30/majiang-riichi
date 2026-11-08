@@ -34,13 +34,13 @@ struct TileFace: View {
         .overlay {
             if state == .doubt || state == .wrong {
                 RoundedRectangle(cornerRadius: width * 0.16 + 3, style: .continuous)
-                    .strokeBorder(Theme.vermilion, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    .strokeBorder(Theme.red, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                     .padding(-4.5)
             }
         }
         .overlay(alignment: .topLeading) {
             if tile.isRed {
-                Circle().fill(Theme.vermilion).frame(width: width * 0.16, height: width * 0.16).padding(width * 0.08)
+                Circle().fill(Theme.tileRed).frame(width: width * 0.16, height: width * 0.16).padding(width * 0.08)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -49,7 +49,7 @@ struct TileFace: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 18, height: 18)
-                    .background(Theme.vermilion, in: Circle())
+                    .background(Theme.red, in: Circle())
                     .offset(x: 7, y: -7)
             }
         }
@@ -238,7 +238,8 @@ private struct HonorFace: View {
                 .stroke(Theme.tileBlue, lineWidth: max(1.5, width * 0.05))
                 .padding(width * 0.06)
         } else {
-            Text(tile.faceCharacter)
+            // 牌面上跟真牌一样写繁体：東南西北中發
+            Text(["東", "南", "西", "北", "中", "發", ""][max(0, min(6, tile.rank - 1))])
                 .font(.system(size: width * 0.62, weight: .heavy))
                 .foregroundStyle(color)
                 .minimumScaleFactor(0.5)
@@ -249,7 +250,7 @@ private struct HonorFace: View {
         switch tile.rank {
         case 5: Theme.tileRed
         case 6: Theme.tileGreen
-        default: Theme.ink
+        default: Theme.tileInk
         }
     }
 }

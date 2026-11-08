@@ -207,7 +207,7 @@ struct EditHandSheet: View {
         SectionLabel("怎么和的")
             .padding(.top, 28)
             .padding(.bottom, 10)
-        SegmentedSwitch(options: [(true, "自摸"), (false, "点炮")], selection: $selfDrawn)
+        SegmentedSwitch(options: [(true, tr("自摸", "ツモ", "Tsumo")), (false, tr("荣和", "ロン", "Ron"))], selection: $selfDrawn)
         if !selfDrawn {
             Text("是谁打的？")
                 .font(.system(size: 14))
@@ -253,7 +253,7 @@ struct EditHandSheet: View {
             return flowers + tr("翻数是手填的，账本里不再列役种。", "翻数は手入力のため、役一覧は表示されません。", "Han entered manually; yaku breakdown hidden.")
         }
         if originalWin?.hand != nil {
-            return flowers + tr("按拍下的牌自动算，换了谁和、自摸还是点炮会重算。要直接改就点加减。",
+            return flowers + tr("按拍下的牌自动算，换了谁和、自摸还是荣和会重算。要直接改就点加减。",
                                 "牌姿から自動計算されます。直接変更するには＋/－を押してください。",
                                 "Auto-calculated from tiles. Tap +/- to override.")
         }
@@ -319,9 +319,7 @@ struct EditHandSheet: View {
             .padding(.top, 28)
             .padding(.bottom, 10)
         chips(selected: offender) { offender = $0 }
-        note(tr("赔另外三家各 \(game.rules.falseWinPenalty) 分，不算一局。",
-                "他3家に各 \(game.rules.falseWinPenalty) 点支払い、局は進みません。",
-                "Pays \(game.rules.falseWinPenalty) pts to each other player; hand replays."))
+        note(game.chomboLine())
     }
 
     // MARK: 小部件
