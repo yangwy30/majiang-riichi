@@ -9,7 +9,7 @@ extension HandRecord {
 
     var isWin: Bool { win != nil }
 
-    /// 账本里的一行标题：「莉莉荣和 · 阿强点炮 · 满贯 5 翻」「这局流局」。
+    /// 账本里的一行标题：「莉莉荣和 · 阿强放铳 · 满贯 5 翻」「这局流局」。
     func title(in game: Game) -> String {
         let name = { (i: Int) in game.players[i].name }
         let sep = tr(" · ", "・", " · ")
@@ -18,7 +18,7 @@ extension HandRecord {
         case .win(let win):
             var parts = [
                 win.discarder.map {
-                    tr("\(name(win.winner))和 · \(name($0))点炮",
+                    tr("\(name(win.winner))荣和 · \(name($0))放铳",
                        "\(name(win.winner)) ロン（\(name($0))放銃）",
                        "\(name(win.winner)) Ron (\(name($0)))")
                 } ?? tr("\(name(win.winner))自摸", "\(name(win.winner)) ツモ", "\(name(win.winner)) Tsumo")
@@ -188,7 +188,7 @@ extension Game {
                 : tr("闲家和牌按 4 倍基本点", "子ロンは基本点×4", "non-dealer Ron 4× base")
             let handPay = Payment.ceil100(base * (isDealer ? 6 : 4)) + honba * 300
             lines.append(tr(
-                "荣和：\(summary)，\(mult)进百位\(honbaText)，由点炮的\(players[discarder].name)付 \(handPay) 点。",
+                "荣和：\(summary)，\(mult)进百位\(honbaText)，由放铳的\(players[discarder].name)付 \(handPay) 点。",
                 "ロン和了：\(summary)、\(mult)（百点単位切り上げ）\(honbaText)。放銃した\(players[discarder].name)が \(handPay) 点を支払います。",
                 "Ron: \(summary), \(mult) rounded up to 100\(honbaText). \(players[discarder].name) pays \(handPay) pts."
             ))

@@ -10,7 +10,7 @@ struct RulesGuideView: View {
     private var basics: [(String, String)] {
         [
             (tr("怎么算点和钱", "点数と収支の計算方法", "How Points & Payments Work"),
-             tr("按翻数和符数算出基本点：闲家荣和由点炮者付 4 倍基本点，闲家自摸由庄家付 2 倍、另外两家闲家各付 1 倍；庄家和牌是闲家的 1.5 倍（荣和 6 倍，自摸三家各付 2 倍），全部按百位向上进位。5 翻起固定为满贯（闲 8000 / 庄 12000）、跳满、倍满、三倍满、役满。",
+             tr("按翻数和符数算出基本点：闲家荣和由放铳者付 4 倍基本点，闲家自摸由庄家付 2 倍、另外两家闲家各付 1 倍；庄家和牌是闲家的 1.5 倍（荣和 6 倍，自摸三家各付 2 倍），全部按百位向上进位。5 翻起固定为满贯（闲 8000 / 庄 12000）、跳满、倍满、三倍满、役满。",
                 "翻数と符から基本点を算出します。子のロンは放銃者が基本点×4、子のツモは親が×2・子2人が×1を支払い、親の和了は子の1.5倍（ロン×6、ツモは子3人が各×2）で、すべて100点単位に切り上げます。5翻以上は満貫（子8000 / 親12000）・跳満・倍満・三倍満・役満となります。",
                 "Base points are calculated from han and fu. For a non-dealer win, Ron is 4× base from the discarder, and Tsumo is 2× from the dealer and 1× from each non-dealer. Dealer wins are 1.5× larger (6× on Ron, 2× from each non-dealer on Tsumo), all rounded up to the nearest 100. 5+ han reach fixed limits: Mangan (8,000 / 12,000), Haneman, Baiman, Sanbaiman, and Yakuman.")),
             (tr("1 翻起和（无役不能和）", "1翻縛り（役なしは和了不可）", "1-Han Yaku Minimum"),

@@ -1,7 +1,7 @@
 import SwiftUI
 import MajiangKit
 
-/// 核对：一页里核对牌面、补上照片看不出来的（自摸还是点炮、少见情况、花牌）。
+/// 核对：一页里核对牌面、补上照片看不出来的（自摸还是荣和、少见情况、宝牌）。
 /// 拿不准的牌一次问一张；凑不成和牌时原地说最可能认错了哪张。
 struct CheckView: View {
     @Environment(AppModel.self) private var model
@@ -94,6 +94,9 @@ struct CheckView: View {
         .sheet(isPresented: $rareOpen) { rareSheet }
         // 牌摆上绿毡时很轻地震一下
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.6), trigger: landed) { _, new in new }
+        .onAppear {
+            if model.demoScreen == .doraSheet { countingDora = true }
+        }
         .task {
             // 等页面淡入再摆牌（onAppear 里直接改，第一帧还没画，看不到动画）
             flipStart = Date().addingTimeInterval(reduceMotion ? 0 : 1.3)
@@ -134,7 +137,7 @@ struct CheckView: View {
         .confirmationDialog(flow.winnerChosen ? "\(winnerName)和错了？" : "谁和错了？",
                             isPresented: $confirmFalseWin, titleVisibility: .visible) {
             if flow.winnerChosen {
-                Button("记下：赔三家各 \(game.rules.falseWinPenalty) 分", role: .destructive) {
+                Button(tr("记下：赔三家各 \(game.rules.falseWinPenalty) 点", "記録：他家に各 \(game.rules.falseWinPenalty) 点", "Record: pay \(game.rules.falseWinPenalty) pts each"), role: .destructive) {
                     finish(.falseWin(offender: flow.winner))
                 }
             } else {
@@ -146,7 +149,7 @@ struct CheckView: View {
             Text("这一局不算打完，接着打。")
         }
         .onChange(of: flow.selfDrawn) { _, _ in
-            // 换了自摸 / 点炮，不再可能的少见情况自动去掉
+            // 换了自摸 / 荣和，不再可能的少见情况自动去掉
             flow.specials = flow.specials.filter { flow.isAvailable($0) }
         }
     }
@@ -470,8 +473,9 @@ struct CheckView: View {
         Button {
             confirmFalseWin = true
         } label: {
-            Text(flow.tiles.isEmpty ? "其实是和错了？记下来（赔三家各 \(game.rules.falseWinPenalty) 分）›"
-                 : "牌没认错，是真的和错了？记下来（赔三家各 \(game.rules.falseWinPenalty) 分）›")
+            Text(flow.tiles.isEmpty
+                 ? tr("其实是和错了？记下来（赔三家各 \(game.rules.falseWinPenalty) 点）›", "実はチョンボ？記録する（他家に各 \(game.rules.falseWinPenalty) 点）›", "Actually a false win? Record it (\(game.rules.falseWinPenalty) pts to each) ›")
+                 : tr("牌没认错，是真的和错了？记下来（赔三家各 \(game.rules.falseWinPenalty) 点）›", "牌は正しく、本当にチョンボ？記録する（他家に各 \(game.rules.falseWinPenalty) 点）›", "Tiles are right but it's a false win? Record it (\(game.rules.falseWinPenalty) pts to each) ›"))
                 .font(.system(size: 13))
                 .foregroundStyle(onFelt ? .white.opacity(0.7) : Theme.gray)
                 .multilineTextAlignment(.leading)
@@ -569,7 +573,7 @@ struct CheckView: View {
     private var tokens: some View {
         let riichiOn = flow.specials.contains(.riichi) || flow.specials.contains(.doubleRiichi)
         return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom, spacing: 18) {
+            HStack(alignment: .bottom, spacing: 14) {
                 if flow.isAvailable(.riichi) || riichiOn {
                     token(flow.specials.contains(.doubleRiichi) ? SpecialWin.doubleRiichi.name : SpecialWin.riichi.name, on: riichiOn) {
                         RiichiStickIcon(width: 52, height: 7, borderColor: .clear)
@@ -632,6 +636,8 @@ struct CheckView: View {
         Text(text)
             .font(.system(size: 12, weight: .bold))
             .foregroundStyle(on ? Theme.tileInk : .white)
+            .lineLimit(1)
+            .fixedSize()
             .padding(.horizontal, 10)
             .frame(height: 22)
             .background(on ? Color.white : Color.clear, in: Capsule())
@@ -653,6 +659,7 @@ struct CheckView: View {
                 Text(tr("宝牌 \(flow.doraTotal)", "ドラ \(flow.doraTotal)", "Dora \(flow.doraTotal)"))
                     .font(Theme.score(12))
                     .lineLimit(1)
+                    .fixedSize()
                 stepButton("plus", label: "多一张") { flow.stepDora(by: 1) }
                     .disabled(flow.doraTotal >= 30)
             }

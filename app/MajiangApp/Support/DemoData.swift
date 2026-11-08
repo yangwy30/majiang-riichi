@@ -12,6 +12,8 @@ enum DemoScreen: String {
     case shareSettle = "share-settle", shareLive = "share-live", backup
     /// 「更多」tab 上打开填邀请码的页；「更多」tab。
     case invite, more
+    /// 核对页上打开「翻宝牌指示牌」；牌桌上打开特殊流局。
+    case doraSheet = "dora", specialDraw = "special-draw"
     /// 家规：开局页的规则表单、点开一项的选项；牌桌上打到一半改这场的规则（预览底分改成 5）、
     /// 带家规的牌桌、封顶起作用的结果页、带家规的账本图。
     case houseRules = "house-rules", rulePicker = "rule-picker", gameRules = "game-rules"
@@ -34,7 +36,7 @@ enum DemoScreen: String {
     }
 
     /// 在牌桌上自动打开记一局。
-    var opensRound: Bool { [.capture, .check, .checkReady, .notWin, .result, .resultCapped, .reviewing, .dualRead].contains(self) }
+    var opensRound: Bool { [.capture, .check, .checkReady, .doraSheet, .notWin, .result, .resultCapped, .reviewing, .dualRead].contains(self) }
 }
 
 #if DEBUG
@@ -172,6 +174,12 @@ enum DemoData {
             gemini.concealed[9] = RecognizedTile(tile: Tile(suit: .dots, rank: 4)!)
             let onDevice = Recognition(concealed: Tile.parseList("111223p 9s 3445566p 7p"), source: "端侧")
             flow.load(DualReadRecognizer.merge(gemini, with: onDevice))
+            flow.steps = [.check]
+        case .doraSheet:
+            flow.load(samples[0])
+            flow.choose(Tile(suit: .dots, rank: 5)!, at: 9)
+            flow.pickSelfDrawn()
+            flow.specials = [.riichi]
             flow.steps = [.check]
         case .result, .resultCapped:
             flow.load(samples[0])

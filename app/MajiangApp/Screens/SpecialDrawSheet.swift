@@ -36,7 +36,7 @@ struct SpecialDrawSheet: View {
                         .padding(.top, 16)
                     if mode == .abortive {
                         SectionLabel(tr("什么情况", "種類", "Reason")).padding(.top, 20).padding(.bottom, 10)
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        FlowLayout(spacing: 8) {
                             ForEach(AbortiveDraw.allCases, id: \.self) { item in
                                 NameChip(name: item.name, selected: kind == item) { kind = item }
                             }

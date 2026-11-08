@@ -10,7 +10,7 @@ extension HandRecord {
         case .doubleRon(let wins):
             let winners = join(wins.map(\.winner))
             let discarder = wins.first?.discarder.map(name) ?? ""
-            return tr("双响 · \(winners)和 · \(discarder)点炮",
+            return tr("双响 · \(winners)和 · \(discarder)放铳",
                       "ダブロン・\(winners)（\(discarder)放銃）",
                       "Double Ron · \(winners) (\(discarder))")
         case .nagashi(let players, _, _):

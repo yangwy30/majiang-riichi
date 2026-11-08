@@ -86,7 +86,7 @@ struct TableView: View {
                 Button(game.players[i].name) { record { try $0.recordFalseWin(offender: i) } }
             }
         } message: {
-            Text("推倒了却凑不成和牌：赔另外三家各 \(game.rules.falseWinPenalty) 分，这一局接着打。")
+            Text(tr("推倒了却凑不成和牌：赔另外三家各 \(game.rules.falseWinPenalty) 点，这一局接着打。", "誤ロン・誤ツモ：他家3人に各 \(game.rules.falseWinPenalty) 点を支払い、同じ局をやり直します。", "False win: pays \(game.rules.falseWinPenalty) pts to each of the other three; the hand is replayed."))
         }
         .sheet(item: $editing) { target in
             EditHandSheet(game: game, record: target.record, number: target.number) { outcome in
@@ -124,6 +124,7 @@ struct TableView: View {
         .onAppear {
             if model.demoScreen == .table { justRecorded = game.records.last }
             if model.demoScreen == .draw { drawingHand = true }
+            if model.demoScreen == .specialDraw { specialDraw = true }
             if model.demoScreen == .editHand, game.records.count > 1 {
                 editing = EditTarget(record: game.records[1], number: 2)
             }

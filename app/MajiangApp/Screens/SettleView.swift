@@ -24,8 +24,34 @@ struct SettleView: View {
         let transfers = Settlement.minimalTransfers(scores: scores)
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                PageTitle(title: "打完了",
-                          subtitle: "\(game.startedAt.dayLabel) · " + tr("\(game.playedHandsCount) 局", "全\(game.playedHandsCount)局", "\(game.playedHandsCount) hands") + " · \(game.rulesSummary)")
+                // 跟结果页、这一局一样的绿毡头：终局、第一名、日期和规则
+                FeltBanner {
+                    VStack(spacing: 4) {
+                        Text("\(game.startedAt.dayLabel) · " + tr("\(game.playedHandsCount) 局", "全\(game.playedHandsCount)局", "\(game.playedHandsCount) hands"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text(tr("终局", "終局", "Final"))
+                            .font(.system(size: 34, weight: .bold))
+                            .padding(.top, 4)
+                        if let top = ranking.first {
+                            Text(tr("第一 · \(game.players[top].name) \(signedMoney(game, scores[top]))",
+                                    "トップ・\(game.players[top].name) \(signedMoney(game, scores[top]))",
+                                    "Top · \(game.players[top].name) \(signedMoney(game, scores[top]))"))
+                                .font(Theme.score(15, weight: .regular))
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                        Text(game.rulesSummary)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .padding(.top, 2)
+                    }
+                    .padding(.top, 18)
+                    .padding(.bottom, 22)
+                    .padding(.horizontal, 20)
+                }
+                .padding(.horizontal, -20)
 
                 VStack(spacing: 0) {
                     ForEach(Array(ranking.enumerated()), id: \.element) { place, player in
@@ -51,7 +77,7 @@ struct SettleView: View {
                         Hairline()
                     }
                 }
-                .padding(.top, 26)
+                .padding(.top, 14)
 
                 SectionLabel("这样转账最省事")
                     .padding(.top, 32)
@@ -93,7 +119,7 @@ struct SettleView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, 0)
         }
         .bottomBar {
             // 发图：微信里大家一眼看清；要文字的复制一下贴进群里

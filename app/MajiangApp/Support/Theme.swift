@@ -414,7 +414,7 @@ struct SegmentedSwitch<Value: Hashable>: View {
     }
 }
 
-/// 选人的小方块：选中藍底白字，没选卡片底细线。
+/// 选人的胶囊：选中毡绿底白字，没选卡片底细线。
 struct NameChip: View {
     var name: String
     var selected: Bool
@@ -428,16 +428,16 @@ struct NameChip: View {
                 .padding(.horizontal, 16)
                 .frame(minHeight: 36)
                 .foregroundStyle(selected ? Color.white : Theme.ink)
-                .background(selected ? Theme.fill : Theme.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(selected ? Color.clear : Theme.line))
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(selected ? Theme.fill : Theme.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.line))
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
-/// 一排等宽的选项（核对页的谁和了、怎么和的）：选中藍底白字，没选卡片底细线。名字长了缩小，不折行。
+/// 一排等宽的选项：选中毡绿底白字，没选卡片底细线。名字长了缩小，不折行。
 struct ChoiceChip: View {
     var title: String
     var selected: Bool
@@ -452,9 +452,9 @@ struct ChoiceChip: View {
                 .padding(.horizontal, 6)
                 .frame(maxWidth: .infinity, minHeight: 40)
                 .foregroundStyle(selected ? Color.white : Theme.ink)
-                .background(selected ? Theme.fill : Theme.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(selected ? Color.clear : Theme.line))
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(selected ? Theme.fill : Theme.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.line))
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])

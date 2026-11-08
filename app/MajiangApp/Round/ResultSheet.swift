@@ -34,7 +34,7 @@ struct ResultSheet: View {
                         Button { flow.showResult = false } label: {
                             HStack(spacing: 6) {
                                 Text(record.discarder.map {
-                                    tr("\(name(record.winner)) · \(name($0))点炮",
+                                    tr("\(name(record.winner)) · \(name($0))放铳",
                                        "\(name(record.winner))・\(name($0))放銃",
                                        "\(name(record.winner)) · Ron (\(name($0)))")
                                 } ?? tr("\(name(record.winner)) · 自摸", "\(name(record.winner))・ツモ", "\(name(record.winner)) · Tsumo"))
