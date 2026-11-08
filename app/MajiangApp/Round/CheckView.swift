@@ -45,29 +45,18 @@ struct CheckView: View {
     /// 这一页有多宽（不用屏幕宽度：Duo 分屏时窗口比屏幕窄）。
     @State private var pageWidth: CGFloat = 0
 
-    /// 每行 7 张，按页面宽度算牌的大小，最大 44。宽屏上内容收在中间一栏，按那一栏算。
-    private var tileWidth: CGFloat {
-        guard pageWidth > 0 else { return 44 }
-        return max(24, min(44, (min(pageWidth, Theme.columnWidth) - 40 - 6 * 6) / 7))
-    }
+    /// 点了「荣和」、还没在小桌上点放铳的人。
+    @State private var choosingDiscarder = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top, spacing: 16) {
-                    PageTitle(title: "核对一下", subtitle: subtitle)
-                    photoThumbnail
-                }
-
-                tileGrid.padding(.top, 22)
-                // 教怎么用的说明句，记过几手以后就收起来
-                if !flow.tiles.isEmpty && !model.isSeasoned {
-                    Text(flow.isReviewing ? "最右边那张算和的牌。" : "最右边那张算和的牌。不对就点一下改。")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.gray)
-                        .padding(.top, 6)
-                }
-                melds
+                header
+                    .padding(.horizontal, 20)
+                // 认出的牌摆在一条绿毡上，像桌上真的牌；点哪张换哪张
+                feltStrip
+                    .padding(.top, 10)
+                VStack(alignment: .leading, spacing: 0) {
                 notes
                 inviteLine
 
@@ -84,44 +73,27 @@ struct CheckView: View {
                 }
 
                 howWon
+                }
+                .padding(.horizontal, 20)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
             .padding(.bottom, 24)
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { pageWidth = $0 }
         .bottomBar {
-            Button {
-                flow.showResult = true
-            } label: {
-                if let reason = flow.blockedReason {
-                    Text(reason)
-                } else if case .success(let result) = flow.scoring {
-                    HStack(spacing: 10) {
-                        Text("看结果")
-                        Text("·").fontWeight(.light).opacity(0.7)
-                        Text(tr("\(result.totalFan) 翻 \(result.fu) 符", "\(result.totalFan)翻 \(result.fu)符", "\(result.totalFan) han \(result.fu) fu")).monospacedDigit()
-                    }
-                }
-            }
-            .buttonStyle(.primary)
-            .disabled(flow.blockedReason != nil)
+            ScoreBar(flow: flow)
         }
         .page()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarRole(.editor)
-        // 核对页是从下面升上来盖住拍照页的，不在导航栈里，返回键自己放；
-        // 系统在这里还会多画一个返回键（iOS 27 模拟器上看到的），藏掉
+        // 核对页盖在拍照页上，不在导航栈里，返回键自己放；系统的返回键和导航栏都藏掉
         .navigationBarBackButtonHidden()
-        .toolbar {
-            NavBack("重拍") { flow.steps.removeAll() }
-        }
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $editing) { target in sheet(for: target) }
-        // 牌落进格子时很轻地震一下
+        // 牌摆上绿毡时很轻地震一下
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.6), trigger: landed) { _, new in new }
         .task {
-            // 等页面升上来再落牌（onAppear 里直接改，第一帧还没画，看不到动画）
+            // 等页面淡入再摆牌（onAppear 里直接改，第一帧还没画，看不到动画）
             flipStart = Date().addingTimeInterval(reduceMotion ? 0 : 1.3)
             try? await Task.sleep(for: .seconds(0.3))
             landed = true
@@ -251,87 +223,118 @@ struct CheckView: View {
 
     private var canAddTile: Bool { flow.tiles.count + 3 * flow.melds.count < 14 }
 
-    private var tileGrid: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), alignment: .center, spacing: 10) {
-            ForEach(Array(flow.tiles.enumerated()), id: \.element.id) { index, tile in
-                Button {
-                    actionTile = index
-                } label: {
-                    VStack(spacing: 4) {
-                        FlippingTile(index: index, width: tileWidth, active: flow.isReviewing, start: flipStart) {
-                            TileFace(tile: tile.tile, width: tileWidth,
-                                     state: tile.needsReview ? .doubt : index == suspect ? .wrong : .normal)
-                        }
-                        // 和的那张下面盖一个朱红小印「和」
-                        Group {
-                            if index == winningIndex {
-                                Seal(text: "和", size: 16, color: Theme.fill).accessibilityLabel("和的那张")
-                            } else {
-                                Color.clear
-                            }
-                        }
-                        .frame(height: 16)
-                    }
-                    // 「和」字跟着牌一起落
-                    .opacity(landed || reduceMotion ? 1 : 0)
-                    .offset(y: landed || reduceMotion ? 0 : -26)
-                    .scaleEffect(landed || reduceMotion ? 1 : 0.86)
-                    .animation(.spring(response: 0.42, dampingFraction: 0.68).delay(Double(index) * 0.05), value: landed)
+    /// 顶上一行：左边回去重拍，右边认出几张、拍的照片。
+    private var header: some View {
+        HStack(spacing: 12) {
+            Button { flow.steps.removeAll() } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "chevron.left").font(.system(size: 17, weight: .semibold))
+                    Text(tr("重拍", "撮り直す", "Retake"))
                 }
-                .buttonStyle(.plain)
-                .disabled(flow.isReviewing)
+                .font(.system(size: 17))
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
-            if canAddTile && !flow.isReviewing {
-                Button {
-                    editing = .add
-                } label: {
-                    VStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: tileWidth * 0.16, style: .continuous)
-                            .strokeBorder(Theme.faint, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                            .frame(width: tileWidth, height: (tileWidth * 1.32).rounded())
-                            .overlay(Image(systemName: "plus").foregroundStyle(Theme.gray))
-                        Color.clear.frame(height: 16)
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("加一张")
-            }
+            .buttonStyle(.plain)
+            Spacer()
+            Text(subtitle)
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.gray)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            photoThumbnail
         }
     }
 
-    /// 亮在桌上的牌（吃碰杠）。没有就只留一行小字入口。
-    @ViewBuilder
-    private var melds: some View {
-        if flow.melds.isEmpty {
-            if !flow.isReviewing {
-                Button("有吃、碰、杠亮在桌上？加上 ›") { editing = .meld }
-                    .buttonStyle(.text(size: 14))
-            }
-        } else {
-            HStack {
-                SectionLabel("亮在桌上的")
-                Button("加一组 ›") { editing = .meld }
-                    .buttonStyle(.text(size: 14))
-                    .disabled(flow.isReviewing)
-            }
-            .padding(.top, 14)
-            FlowLayout(spacing: 14) {
-                ForEach(Array(flow.melds.enumerated()), id: \.offset) { index, meld in
-                    Button {
-                        actionMeld = index
-                    } label: {
-                        HStack(spacing: 2) {
-                            ForEach(Array(meld.tiles.enumerated()), id: \.offset) { _, tile in
-                                TileFace(tile: tile, width: 30)
+    /// 一条绿毡，牌一张张摆上去（从左往右推进来，像发牌），和的那张单独放在最右。
+    private var feltStrip: some View {
+        FeltBanner {
+            VStack(spacing: 12) {
+                let width = stripTileWidth
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach(Array(flow.tiles.enumerated()), id: \.element.id) { index, tile in
+                        if index == winningIndex && index == flow.tiles.count - 1 && flow.tiles.count > 1 {
+                            Color.clear.frame(width: width * 0.45, height: 1)
+                        }
+                        Button {
+                            actionTile = index
+                        } label: {
+                            FlippingTile(index: index, width: width, active: flow.isReviewing, start: flipStart) {
+                                TileFace(tile: tile.tile, width: width,
+                                         state: tile.needsReview ? .doubt : index == suspect ? .wrong : .normal)
+                            }
+                            .overlay(alignment: .bottom) {
+                                if index == winningIndex {
+                                    Capsule().fill(.white).frame(width: width * 0.5, height: 3).offset(y: 8)
+                                        .accessibilityLabel("和的那张")
+                                }
                             }
                         }
+                        .buttonStyle(.plain)
+                        .disabled(flow.isReviewing)
+                        .opacity(landed || reduceMotion ? 1 : 0)
+                        .offset(x: landed || reduceMotion ? 0 : -18)
+                        .animation(.easeOut(duration: 0.28).delay(Double(index) * 0.035), value: landed)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(meld.kindName + meld.displayText)
+                    if canAddTile && !flow.isReviewing {
+                        Button { editing = .add } label: {
+                            RoundedRectangle(cornerRadius: width * 0.16, style: .continuous)
+                                .strokeBorder(.white.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                                .frame(width: width, height: (width * 1.32).rounded())
+                                .overlay(Image(systemName: "plus").font(.system(size: width * 0.45)).foregroundStyle(.white.opacity(0.8)))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("加一张")
+                    }
+                }
+                .padding(.horizontal, 12)
+                if !flow.melds.isEmpty {
+                    HStack(spacing: 12) {
+                        ForEach(Array(flow.melds.enumerated()), id: \.offset) { index, meld in
+                            Button { actionMeld = index } label: {
+                                HStack(spacing: 1) {
+                                    ForEach(Array(meld.tiles.enumerated()), id: \.offset) { _, tile in
+                                        TileFace(tile: tile, width: min(width, 22))
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(meld.kindName + meld.displayText)
+                        }
+                    }
+                }
+                HStack(spacing: 14) {
+                    Text(stripHint)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.8))
+                    if !flow.isReviewing {
+                        Button { editing = .meld } label: {
+                            Text(tr("+ 吃碰杠", "+ 鳴き", "+ Meld"))
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 10)
+                                .frame(height: 26)
+                                .background(.white.opacity(0.16), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.top, 20)
+            .padding(.bottom, 16)
         }
+    }
+
+    /// 一排放得下 14 张（有杠时再多几张）：按页面宽度算，最大 28。
+    private var stripTileWidth: CGFloat {
+        let width = min(pageWidth > 0 ? pageWidth : 390, Theme.columnWidth) - 24
+        let count = CGFloat(flow.tiles.count + 1) + 0.45
+        return max(16, min(28, ((width - count * 2) / count).rounded(.down)))
+    }
+
+    private var stripHint: String {
+        if flow.isReviewing { return tr("每张再认一遍，几秒就好", "もう一度読み取り中…", "Double-checking each tile…") }
+        if flow.firstPending != nil { return tr("点一张牌就能换 · 红框那张看不太清", "タップで差し替え・赤枠は不鮮明", "Tap a tile to swap · red frame = unclear") }
+        return tr("点一张牌就能换 · 最右边是和的那张", "タップで差し替え・右端が和了牌", "Tap a tile to swap · rightmost is the winning tile")
     }
 
     /// 识别时的说明（画面里有别的牌没算、副露两边读得不一样、Gemini 没复核上……）。
@@ -461,297 +464,233 @@ struct CheckView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: 怎么和的
+    // MARK: 谁和了、怎么和的、桌上的筹码
 
     private var shapeBroken: Bool {
         if case .failure = flow.scoring { return true }
         return false
     }
 
-    /// 谁和了、怎么和的：都不预先选。「怎么和的」一排四个：自摸，或者另外三个人谁点的炮，点一下两件事都说清。
+    /// 左边一张小牌桌，点座位选谁和了（荣和时再点放铳的人）；右边自摸 / 荣和。下面一块绿毡放立直棒、一发、宝牌这些。
     @ViewBuilder
     private var howWon: some View {
-        SectionLabel("谁和了")
-            .padding(.top, 28)
+        SectionLabel(tr("谁和了、怎么和的", "和了した人と和了り方", "Who won, and how"))
+            .padding(.top, 26)
             .padding(.bottom, 10)
-        HStack(spacing: 8) {
-            ForEach(0..<4, id: \.self) { i in
-                ChoiceChip(title: game.players[i].name, selected: flow.winnerChosen && flow.winner == i) {
-                    flow.pickWinner(i)
+        HStack(alignment: .center, spacing: 16) {
+            SeatPicker(game: game,
+                       winner: flow.winnerChosen ? flow.winner : nil,
+                       discarder: flow.wayChosen && !flow.selfDrawn ? flow.discarder : nil,
+                       pickingDiscarder: choosingDiscarder) { player in
+                if choosingDiscarder, flow.winnerChosen, player != flow.winner {
+                    flow.pickDiscarder(player)
+                    choosingDiscarder = false
+                } else {
+                    flow.pickWinner(player)
                 }
             }
-        }
-
-        SectionLabel("怎么和的")
-            .padding(.top, 24)
-            .padding(.bottom, 10)
-        VStack(alignment: .leading, spacing: 0) {
-            if flow.winnerChosen {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    ChoiceChip(title: "自摸", selected: flow.wayChosen && flow.selfDrawn) { flow.pickSelfDrawn() }
-                    ForEach((0..<4).filter { $0 != flow.winner }, id: \.self) { i in
-                        ChoiceChip(title: tr("\(game.players[i].name)点炮", "\(game.players[i].name) 放銃", "\(game.players[i].name) Dealt"),
-                                   selected: flow.wayChosen && !flow.selfDrawn && flow.discarder == i) {
-                            flow.pickDiscarder(i)
-                        }
+                    wayButton(tr("自摸", "ツモ", "Tsumo"), on: flow.wayChosen && flow.selfDrawn) {
+                        flow.pickSelfDrawn()
+                        choosingDiscarder = false
+                    }
+                    wayButton(tr("荣和", "ロン", "Ron"), on: choosingDiscarder || (flow.wayChosen && !flow.selfDrawn)) {
+                        choosingDiscarder = true
                     }
                 }
-            }
-            if let wayNote {
-                Text(wayNote)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.gray)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, flow.winnerChosen ? 10 : 0)
+                .disabled(!flow.winnerChosen)
+                .opacity(flow.winnerChosen ? 1 : 0.45)
+                if let wayNote {
+                    Text(wayNote)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.gray)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         // 牌还凑不成和的时候，先改牌
         .opacity(shapeBroken ? 0.5 : 1)
         .disabled(shapeBroken)
 
-        VStack(spacing: 0) {
-            if flow.isAvailable(.riichi) {
-                riichiRow
-                Hairline(color: Theme.lineSoft)
-            }
-            if game.rules.includeFlowers {
-                flowers
-                Hairline(color: Theme.lineSoft)
-            }
-            rareSection
+        SectionLabel(tr("放到桌上的", "卓に置くもの", "On the table"))
+            .padding(.top, 24)
+            .padding(.bottom, 10)
+        tokens
+    }
+
+    private func wayButton(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 16, weight: on ? .semibold : .regular))
+                .foregroundStyle(on ? Color.white : Theme.ink)
+                .frame(maxWidth: .infinity, minHeight: 42)
+                .background(on ? Theme.fill : Theme.card, in: Capsule())
+                .contentShape(Capsule())
         }
-        .block()
-        .padding(.top, 22)
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private var wayNote: String? {
-        if !flow.winnerChosen { return tr("先选上面谁和了。", "上で和了した人を先に選んでください。", "Select who won above first.") }
+        if !flow.winnerChosen { return tr("在小桌上点和了的人。", "小さな卓で和了した人をタップ。", "Tap the winner on the little table.") }
+        if choosingDiscarder { return tr("再在小桌上点放铳的人。", "放銃した人をタップ。", "Now tap who dealt in.") }
         if model.isSeasoned { return nil }
         if !flow.wayChosen {
-            return tr("自己摸到的选「自摸」；和的是别人打出的牌，就选打那张的人。",
-                      "自分で引いたなら「ツモ」、他家の捨牌なら放銃した人を選びます。",
-                      "Tap Tsumo if self-drawn, or tap the player who discarded the winning tile.")
+            return tr("自己摸到的选「自摸」；和的是别人打出的牌，选「荣和」再点放铳的人。",
+                      "自分で引いたら「ツモ」、他家の捨牌なら「ロン」で放銃者を選びます。",
+                      "Tsumo if self-drawn; Ron, then tap who discarded it.")
         }
-        if flow.selfDrawn { return tr("自己摸到和的那张，三家都要付。", "ツモ和了は他家3人が支払います。", "Self-drawn win: all three other players pay.") }
+        if flow.selfDrawn { return tr("自摸：三家都要付。", "ツモ：他家3人が支払い。", "Tsumo: all three others pay.") }
         let dName = flow.discarder.map { game.players[$0].name } ?? tr("别人", "他家", "another player")
-        return tr("和的是\(dName)打出的牌。", "\(dName)の捨牌でロン和了。", "Won by Ron off \(dName)'s discard.")
+        return tr("荣和：\(dName)放铳。", "ロン：\(dName)が放銃。", "Ron off \(dName).")
     }
 
     private var availableRare: [SpecialWin] { SpecialWin.allCases.filter { flow.isAvailable($0) } }
-    private var otherRareOptions: [SpecialWin] { availableRare.filter { $0 != .riichi } }
+    /// 收在「其他」里的少见情况（立直、一发直接摆在桌上）。
+    private var otherRareOptions: [SpecialWin] { availableRare.filter { $0 != .riichi && $0 != .ippatsu } }
 
-    /// 立直是最常点的役：门前清时直接露在第一行，点一下就勾上；勾上后旁边直接给「一发」快捷钮。
-    private var riichiRow: some View {
-        let isRiichi = flow.specials.contains(.riichi)
-        let isDouble = flow.specials.contains(.doubleRiichi)
-        let isIppatsu = flow.specials.contains(.ippatsu)
-        let active = isRiichi || isDouble
-        return HStack(spacing: 12) {
-            Button {
-                if active {
-                    flow.specials.remove(.riichi)
-                    flow.specials.remove(.doubleRiichi)
-                    flow.specials.remove(.ippatsu)
-                } else {
-                    flow.specials.insert(.riichi)
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    RiichiStickIcon(width: 30, height: 7)
-                        .opacity(active ? 1 : 0.45)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text(isDouble ? SpecialWin.doubleRiichi.name : SpecialWin.riichi.name).font(.system(size: 16))
-                            Text(tr("· \(isDouble ? 2 : 1) 翻", "・\(isDouble ? 2 : 1)翻", "· \(isDouble ? 2 : 1) han"))
-                                .font(.system(size: 14))
-                                .foregroundStyle(Theme.gray)
-                        }
-                        if !model.isSeasoned && !active {
-                            Text(tr("门前清听牌后宣告立直", "門前清で聴牌しリーチを宣言", "Declared Riichi with a closed tenpai hand"))
-                                .font(.system(size: 14))
-                                .foregroundStyle(Theme.gray)
+    /// 桌上的筹码：一根立直棒（点一下放上 / 拿掉）、一发、宝牌数，「其他」点开是双立直、岭上这些少见情况。
+    private var tokens: some View {
+        let riichiOn = flow.specials.contains(.riichi) || flow.specials.contains(.doubleRiichi)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .bottom, spacing: 18) {
+                if flow.isAvailable(.riichi) || riichiOn {
+                    token(flow.specials.contains(.doubleRiichi) ? SpecialWin.doubleRiichi.name : SpecialWin.riichi.name, on: riichiOn) {
+                        RiichiStickIcon(width: 52, height: 7, borderColor: .clear)
+                            .shadow(color: .black.opacity(0.35), radius: 1, y: 1)
+                            .frame(height: 24)
+                    } action: {
+                        if riichiOn {
+                            flow.specials.subtract([.riichi, .doubleRiichi, .ippatsu])
+                        } else {
+                            flow.specials.insert(.riichi)
                         }
                     }
-                    Spacer()
                 }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if active {
-                Button {
-                    if isIppatsu {
-                        flow.specials.remove(.ippatsu)
-                    } else {
-                        flow.specials.insert(.ippatsu)
+                if riichiOn && flow.isAvailable(.ippatsu) {
+                    let on = flow.specials.contains(.ippatsu)
+                    token(SpecialWin.ippatsu.name, on: on) {
+                        chipFace(tr("一发", "一発", "Ippatsu"), on: on).frame(height: 24)
+                    } action: {
+                        if on { flow.specials.remove(.ippatsu) } else { flow.specials.insert(.ippatsu) }
                     }
-                } label: {
-                    Text(isIppatsu ? tr("一发 +1 翻 ✓", "一発 +1翻 ✓", "Ippatsu +1 ✓") : tr("+ 一发", "+ 一発", "+ Ippatsu"))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(isIppatsu ? .white : Theme.ink)
-                        .padding(.horizontal, 10)
-                        .frame(height: 28)
-                        .background(isIppatsu ? Theme.fill : Theme.lineSoft, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
-                .buttonStyle(.plain)
+                if !otherRareOptions.isEmpty || flow.winnerChosen {
+                    token(tr("其他", "その他", "More"), on: rareOpen || rareCount > 0) {
+                        chipFace(rareCount > 0 ? "+\(rareCount)" : "+", on: rareCount > 0).frame(height: 24)
+                    } action: {
+                        withAnimation(.easeOut(duration: 0.2)) { rareOpen.toggle() }
+                    }
+                }
+                Spacer(minLength: 0)
+                if game.rules.includeFlowers { dora }
             }
-
-            Button {
-                if active {
-                    flow.specials.remove(.riichi)
-                    flow.specials.remove(.doubleRiichi)
-                    flow.specials.remove(.ippatsu)
-                } else {
-                    flow.specials.insert(.riichi)
-                }
-            } label: {
-                ZStack {
-                    Circle().strokeBorder(Theme.faint, lineWidth: 1).opacity(active ? 0 : 1)
-                    Circle().fill(Theme.red).opacity(active ? 1 : 0)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
-                        .opacity(active ? 1 : 0)
-                }
-                .frame(width: 24, height: 24)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("立直")
-            .accessibilityAddTraits(active ? .isSelected : [])
+            if rareOpen { rareChips }
         }
-        .frame(minHeight: 60)
+        .padding(16)
+        .foregroundStyle(.white)
+        .background(FeltTexture().clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)))
     }
 
-    private var rareSummaryText: String {
-        var parts = otherRareOptions.filter { flow.specials.contains($0) }.map(\.name)
-        let extraSticks = flow.riichiPlayers.subtracting([flow.winner]).count
-        if extraSticks > 0 {
-            parts.append(tr("立直棒 ×\(extraSticks)", "リーチ棒×\(extraSticks)", "Riichi ×\(extraSticks)"))
-        }
-        return parts.isEmpty ? tr("没有", "なし", "None") : parts.joined(separator: tr("、", "・", ", "))
+    private var rareCount: Int {
+        otherRareOptions.filter { flow.specials.contains($0) }.count + flow.riichiPlayers.subtracting([flow.winner]).count
     }
 
-    @ViewBuilder
-    private var rareSection: some View {
-        Button {
-            withAnimation(.easeOut(duration: 0.2)) { rareOpen.toggle() }
-        } label: {
-            HStack {
-                Text("其他").font(.system(size: 16))
-                Spacer()
-                Text(rareSummaryText + (rareOpen ? " ⌃" : " ›"))
-                    .font(.system(size: 15))
-                    .foregroundStyle(Theme.gray)
+    /// 一个筹码：上面是东西本身，下面一行字；选上了字后面打个勾。
+    private func token<Face: View>(_ title: String, on: Bool, @ViewBuilder face: () -> Face, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                face().opacity(on ? 1 : 0.4)
+                Text(title + (on ? " ✓" : ""))
+                    .font(.system(size: 12, weight: on ? .semibold : .regular))
+                    .foregroundStyle(.white.opacity(on ? 1 : 0.75))
+                    .lineLimit(1)
             }
-            .frame(height: 56)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        if rareOpen {
-            if flow.winnerChosen {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("还有哪家也立直了？（每家 +1000 点供托归和牌者）")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.gray)
-                    HStack(spacing: 8) {
-                        ForEach((0..<4).filter { $0 != flow.winner }, id: \.self) { i in
-                            let selected = flow.riichiPlayers.contains(i)
-                            ChoiceChip(title: game.players[i].name, selected: selected) {
-                                if selected {
-                                    flow.riichiPlayers.remove(i)
-                                } else {
-                                    flow.riichiPlayers.insert(i)
-                                }
-                            }
-                        }
-                    }
-                }
-                .padding(.vertical, 12)
-                .overlay(alignment: .top) { Hairline(color: Theme.lineSoft) }
-            }
-            ForEach(otherRareOptions, id: \.self) { special in
-                let on = flow.specials.contains(special)
-                Button {
-                    if on {
-                        flow.specials.remove(special)
-                    } else {
-                        flow.specials.subtract(special.conflicts)
-                        flow.specials.insert(special)
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            (Text(special.name) + Text(" · \(special.fanPoints) 翻").foregroundStyle(Theme.gray))
-                                .font(.system(size: 15))
-                            Text(special.plain)
-                                .font(.system(size: 14))
-                                .foregroundStyle(Theme.gray)
-                        }
-                        Spacer()
-                        ZStack {
-                            Circle().strokeBorder(Theme.faint, lineWidth: 1).opacity(on ? 0 : 1)
-                            Circle().fill(Theme.fill).opacity(on ? 1 : 0)
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.white)
-                                .opacity(on ? 1 : 0)
-                        }
-                        .frame(width: 24, height: 24)
-                    }
-                    .padding(.vertical, 12)
-                    .overlay(alignment: .top) { Hairline(color: Theme.lineSoft) }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(on ? .isSelected : [])
-            }
-        }
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
-    private var flowers: some View {
-        let isRiichi = flow.specials.contains(.riichi) || flow.specials.contains(.doubleRiichi)
-        return HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("宝牌").font(.system(size: 16))
-                if isRiichi {
-                    Text(tr("立直和牌别忘了翻里宝牌！表宝、里宝、赤宝每张 1 翻",
-                            "リーチ和了は裏ドラも確認！表・裏・赤ドラ各1翻",
-                            "Don't forget Ura-dora! Dora, Ura & Red 5 are +1 han each"))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.ink)
-                } else if !model.isSeasoned {
-                    Text(tr("表宝、赤宝、里宝每张 1 翻，不算起和役",
-                            "表ドラ・赤ドラ・裏ドラは各1翻（役には含まれません）",
-                            "Dora, Red 5 & Ura-dora add +1 han each (not a yaku)"))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.gray)
-                }
-            }
-            Spacer()
-            HStack(spacing: 14) {
+    /// 绿毡上的小片：选上是白底，没选是白色虚线框。
+    private func chipFace(_ text: String, on: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(on ? Theme.tileInk : .white)
+            .padding(.horizontal, 10)
+            .frame(height: 22)
+            .background(on ? Color.white : Color.clear, in: Capsule())
+            .overlay(Capsule().strokeBorder(.white.opacity(on ? 0 : 0.7), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+    }
+
+    /// 宝牌：一张红五做标记，下面加减。立直和牌的时候提醒翻里宝牌。
+    private var dora: some View {
+        VStack(spacing: 6) {
+            TileFace(tile: Tile(suit: .dots, rank: 5)!, width: 18)
+            HStack(spacing: 8) {
                 stepButton("minus", label: "少一张") { flow.flowerCount = max(0, flow.flowerCount - 1) }
                     .disabled(flow.flowerCount == 0)
-                Text("\(flow.flowerCount)")
-                    .font(.system(size: 17).monospacedDigit())
-                    .frame(minWidth: 14)
+                Text(tr("宝牌 \(flow.flowerCount)", "ドラ \(flow.flowerCount)", "Dora \(flow.flowerCount)"))
+                    .font(Theme.score(12))
+                    .lineLimit(1)
                 stepButton("plus", label: "多一张") { flow.flowerCount = min(12, flow.flowerCount + 1) }
                     .disabled(flow.flowerCount == 12)
             }
         }
-        .frame(minHeight: 60)
+        .accessibilityElement(children: .contain)
     }
 
     private func stepButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 14, weight: .medium))
-                .frame(width: 32, height: 32)
-                .overlay(Circle().strokeBorder(Theme.line))
-                .contentShape(Circle())
+                .font(.system(size: 10, weight: .bold))
+                .frame(width: 22, height: 22)
+                .background(.white.opacity(0.16), in: Circle())
+                .contentShape(Circle().inset(by: -8))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+    }
+
+    /// 「其他」点开：少见的役（双立直、岭上、海底……）和别家也立直了。
+    private var rareChips: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            FlowLayout(spacing: 8) {
+                ForEach(otherRareOptions, id: \.self) { special in
+                    let on = flow.specials.contains(special)
+                    Button {
+                        if on {
+                            flow.specials.remove(special)
+                        } else {
+                            flow.specials.subtract(special.conflicts)
+                            flow.specials.insert(special)
+                        }
+                    } label: {
+                        chipFace("\(special.name) · \(special.fanPoints)", on: on)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+            }
+            if flow.winnerChosen {
+                Text(tr("别家也立直了？每家的立直棒归和牌的人", "他家もリーチ？リーチ棒は和了者へ", "Others in riichi? Their sticks go to the winner"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.75))
+                FlowLayout(spacing: 8) {
+                    ForEach((0..<4).filter { $0 != flow.winner }, id: \.self) { i in
+                        let on = flow.riichiPlayers.contains(i)
+                        Button {
+                            if on { flow.riichiPlayers.remove(i) } else { flow.riichiPlayers.insert(i) }
+                        } label: {
+                            chipFace(game.players[i].name, on: on)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                }
+            }
+        }
     }
 
     // MARK: 改牌
@@ -912,5 +851,127 @@ private struct PhotoViewer: View {
     private func resetOffset() {
         offset = .zero
         lastOffset = .zero
+    }
+}
+
+/// 小牌桌：四家按真实座次坐在四边，点座位选人。和了的人白圈，放铳的人黄圈。
+private struct SeatPicker: View {
+    var game: Game
+    var winner: Int?
+    var discarder: Int?
+    var pickingDiscarder: Bool
+    var pick: (Int) -> Void
+
+    var body: some View {
+        let hand = game.displayHand
+        let order = game.seating(ofRound: game.roundIndex(ofHand: hand))
+        let me = game.position(of: game.me, inHand: hand)
+        let at = { (offset: Int) in order[(me + offset) % 4] }
+        ZStack {
+            FeltTexture()
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Text(centerText)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+                .frame(width: 64)
+            seat(at(2), hand: hand).frame(maxHeight: .infinity, alignment: .top).padding(.top, 5)
+            seat(at(0), hand: hand).frame(maxHeight: .infinity, alignment: .bottom).padding(.bottom, 5)
+            seat(at(3), hand: hand).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 4)
+            seat(at(1), hand: hand).frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 4)
+        }
+        .padding(7)
+        .frame(width: 164, height: 164)
+        .background(LinearGradient(colors: Theme.walnut, startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: Color(hex: 0x28190A).opacity(0.25), radius: 8, y: 6)
+        .animation(.snappy(duration: 0.25), value: winner)
+        .animation(.snappy(duration: 0.25), value: discarder)
+        .sensoryFeedback(.selection, trigger: winner)
+        .sensoryFeedback(.selection, trigger: discarder)
+    }
+
+    private var centerText: String {
+        if let winner {
+            let name = game.players[winner].name
+            if let discarder { return tr("\(name) 和了\n\(game.players[discarder].name) 放铳", "\(name) 和了\n\(game.players[discarder].name) 放銃", "\(name) won\n\(game.players[discarder].name) dealt") }
+            return pickingDiscarder ? tr("点放铳的人", "放銃者をタップ", "Tap who dealt in") : tr("\(name) 和了", "\(name) 和了", "\(name) won")
+        }
+        return tr("点和了的人", "和了者をタップ", "Tap the winner")
+    }
+
+    private func seat(_ player: Int, hand: Int) -> some View {
+        let isWinner = winner == player
+        let isDiscarder = discarder == player
+        let ring: Color = isWinner ? .white : isDiscarder ? Color(hex: 0xFFD27A) : .clear
+        return Button { pick(player) } label: {
+            VStack(spacing: 1) {
+                WindTile(text: Theme.windGlyph(game.seatWind(of: player, inHand: hand).name),
+                         isDealer: game.dealer(ofHand: hand) == player, width: 19)
+                Text(game.players[player].name)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineLimit(1)
+                    .frame(maxWidth: 46)
+            }
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
+            .background(ring.opacity(isWinner || isDiscarder ? 0.2 : 0), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(ring, lineWidth: 2))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(game.players[player].name)
+        .accessibilityAddTraits(isWinner || isDiscarder ? .isSelected : [])
+    }
+}
+
+/// 核对页底部：左边几翻几符（还不能看时写原因），右边「看结果」带上这手赢多少。
+private struct ScoreBar: View {
+    @Bindable var flow: RoundFlow
+
+    var body: some View {
+        HStack(spacing: 10) {
+            if let reason = flow.blockedReason {
+                Text(reason)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Theme.gray)
+                    .frame(maxWidth: .infinity, minHeight: 54)
+            } else {
+                VStack(alignment: .leading, spacing: 1) {
+                    if case .success(let result) = flow.scoring {
+                        Text(tr("\(result.totalFan) 翻 \(result.fu) 符", "\(result.totalFan)翻 \(result.fu)符", "\(result.totalFan) han \(result.fu) fu"))
+                            .font(Theme.score(16))
+                    }
+                    if let record = flow.winRecord,
+                       let limit = Payment.limitName(han: flow.game.rules.paidFan(record), fu: record.fu, kiriageMangan: flow.game.rules.kiriageMangan) {
+                        Text(limit).font(.system(size: 12)).foregroundStyle(Theme.gray)
+                    }
+                }
+                .padding(.leading, 16)
+                Spacer(minLength: 8)
+                Button { flow.showResult = true } label: {
+                    HStack(spacing: 6) {
+                        if let record = flow.winRecord, let deltas = flow.deltas, record.winner < deltas.count {
+                            Text(Theme.signed(deltas[record.winner])).font(Theme.score(17))
+                        } else {
+                            Text(tr("看结果", "結果を見る", "See result"))
+                        }
+                        Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold))
+                    }
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 20)
+                    .frame(minHeight: 46)
+                    .background(Theme.fill, in: Capsule())
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(PressFade())
+                .accessibilityLabel(tr("看结果", "結果を見る", "See result"))
+            }
+        }
+        .padding(5)
+        .background(Theme.card, in: Capsule())
+        .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
     }
 }

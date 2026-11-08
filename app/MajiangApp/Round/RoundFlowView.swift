@@ -26,14 +26,13 @@ struct RoundFlowView: View {
     private var checking: Bool { !flow.steps.isEmpty }
 
     var body: some View {
-        // 核对页不是推进来的：拍照页往后退一点、变暗，核对页从下面升上来，牌一张张落进格子里
+        // 核对页不是推进来的：拍完照片定格、变暗，核对页淡进来，牌从左往右一张张摆上绿毡
         ZStack {
             NavigationStack {
                 CaptureView(flow: flow) { dismiss() }
             }
-            .clipShape(RoundedRectangle(cornerRadius: checking ? 28 : 0, style: .continuous))
-            .scaleEffect(checking ? 0.94 : 1, anchor: .top)
-            .opacity(checking ? 0.45 : 1)
+            .opacity(checking ? 0.25 : 1)
+            .blur(radius: checking ? 8 : 0)
             .allowsHitTesting(!checking)
 
             if checking {
@@ -42,14 +41,14 @@ struct RoundFlowView: View {
                 }
                 // 升上来的半路上整层还是深色，核对页先按系统的颜色画
                 .environment(\.colorScheme, colorScheme)
-                .transition(.move(edge: .bottom))
+                .transition(.opacity.combined(with: .scale(scale: 1.03)))
                 .zIndex(1)
             }
         }
         // 拍照页被圆角裁过，边上的安全区（iPhone Duo 外屏右边竖着的状态栏、底部横条）露的是这层底色：
         // 平时跟拍照页同色，免得有一道接缝；核对页升上来时才换成纯黑，衬出往后退的拍照页
         .background((checking ? Color.black : Theme.darkroom).ignoresSafeArea())
-        .animation(.spring(response: 0.5, dampingFraction: 0.86), value: checking)
+        .animation(.easeOut(duration: 0.35), value: checking)
         .tint(Theme.ink)
         // 拍照页是深色底，状态栏要白字；导航栏的 toolbarColorScheme 管不到整个全屏弹层
         .preferredColorScheme(lightBars ? colorScheme : .dark)

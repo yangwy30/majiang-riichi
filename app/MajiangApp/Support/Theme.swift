@@ -490,6 +490,16 @@ struct WindTile: View {
 }
 
 extension View {
+    /// 拍照页上的玻璃圆按钮。
+    @ViewBuilder
+    func glassCircle() -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular.interactive(), in: Circle())
+        } else {
+            self.background(.ultraThinMaterial, in: Circle())
+        }
+    }
+
     /// Liquid Glass 胶囊：iOS 26 起用系统的玻璃，之前的系统用毛玻璃。
     @ViewBuilder
     func glassCapsule() -> some View {

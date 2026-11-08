@@ -137,7 +137,7 @@ struct TableBoard: View {
 }
 
 /// 绿毡：中间亮四周暗，加一层很细的绒面颗粒。
-private struct FeltTexture: View {
+struct FeltTexture: View {
     var body: some View {
         ZStack {
             RadialGradient(colors: Theme.felt, center: UnitPoint(x: 0.5, y: 0.38), startRadius: 0, endRadius: 220)
