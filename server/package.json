@@ -1,0 +1,14 @@
+{
+  "name": "majiang-riichi-relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "node --test",
+    "deploy": "wrangler deploy",
+    "admin-setup": "node scripts/admin-setup.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.153.0"
+  }
+}

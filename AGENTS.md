@@ -13,7 +13,7 @@
   - `Scoring/WinAssistant.swift`：核对页特殊和牌条件（`立直`、`一发`、`双立直`、`岭上开花`、`海底摸月`、`河底捞鱼`、`抢杠`）与差一张时的智能改牌建议。
   - `Scoring/L10n.swift`：全局三语国际化支持（`zh-Hans` 中文、`ja` 日文、`en` 英文），支持跟随系统语言或 App 内一键切换。
   - `Game/Game.swift`：立直麻将基本点公式 $B = \text{符} \times 2^{\text{翻}+2}$、满贯/跳满/倍满/三倍满/役满段位、庄闲自摸与荣和百位进位收付、**庄家连庄/轮庄状态机**、**本场棒（1 本场荣和 +300 点 / 自摸各 +100 点）**、**荒牌流局听牌罚符（不听罚 3000 点，庄家听牌连庄/不听流庄）**、**立直供托棒跨流局累积（`currentPot`，流局立直者必听牌并留 1000 点供托归下次和牌者，终局未领归一位 `トップ取り`）**、**他家同局立直棒（每家 1000 点）**、半庄 8 局 / 东风战 4 局、**有喰断 / 门清断幺（`allowKuitan`）**、**终局顺位马（`uma`：无 / 5-10 / 10-20 / 10-30）**、切上满贯选项、错和罚符（默认每家 3000 点）与千点折算汇率。
-  - `Recognition/`：端侧 Core ML YOLOv8n（`MahjongTileDetector.mlpackage`）+ Gemini 双读管线（支持赤宝牌红五万/红五饼/红五条自动计数与 `0m/0p/0s` 记法解析），共用 `https://majiang.acrossus.app/recognize` 中转服务。
+  - `Recognition/`：端侧 Core ML YOLOv8n（`MahjongTileDetector.mlpackage`）+ Gemini 双读管线（支持赤宝牌红五万/红五饼/红五条自动计数与 `0m/0p/0s` 记法解析），走自己的中转站 `https://riichi.acrossus.app/recognize`（`server/`，和国标版的中转站、邀请码分开）。
 - **`app/MajiangApp`（SwiftUI iOS 客户端，独立 Bundle ID `com.yangwy30.majiang.riichi`）**：
   - 采用专属 **「勝色与朱」**（三桠和纸底 `#F3F4F0`、深胜色靛蓝 `#16202E`、立直棒朱红 `#C9372C`）视觉体系，与国标版 `majiang-ppc` 彻底区分（防 Apple 4.3 重复应用拒审）：
     - **牌桌中控盘**：深胜色电投桌中控方盘展示「東三局」、本场数与千点立直棒（`RiichiStickIcon` `—•— ×1`）；
