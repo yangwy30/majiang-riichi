@@ -89,7 +89,7 @@ struct ShareCard: View {
                         .font(Theme.glyph(13))
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
-                        .background(place == 0 ? Theme.felt[1] : Theme.tileInk, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        .background(place == 0 ? Theme.felt[1] : Color(hex: 0x6E7370), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                     Text(game.players[player].name)
                         .font(.system(size: 17, weight: .medium))
                         .lineLimit(1)

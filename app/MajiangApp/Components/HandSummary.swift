@@ -60,7 +60,7 @@ struct DeltaGrid: View {
         HStack(alignment: .top, spacing: 8) {
             ForEach(seatOrder, id: \.self) { i in
                 VStack(spacing: 6) {
-                    WindTile(text: Theme.windGlyph(game.seatWind(of: i, inHand: hand).name),
+                    WindTile(text: Theme.tileGlyph(game.seatWind(of: i, inHand: hand)),
                              isDealer: game.dealer(ofHand: hand) == i, width: 22)
                     Text(game.players[i].name).font(.system(size: 12)).foregroundStyle(Theme.gray).lineLimit(1)
                     Text(Theme.signed(deltas[i]))

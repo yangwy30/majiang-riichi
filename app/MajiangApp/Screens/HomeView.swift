@@ -73,7 +73,7 @@ private struct EmptyGameView: View {
     }
 }
 
-/// 牌桌下面的一排操作：主操作是墨色胶囊（带图标），旁边一个玻璃胶囊。点下去轻震一下。
+/// 牌桌下面的一排操作：主操作是毡绿胶囊（带图标），旁边一个玻璃胶囊。点下去轻震一下。
 struct TableActions: View {
     var symbol: String
     var title: String

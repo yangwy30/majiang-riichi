@@ -211,7 +211,7 @@ extension TableBoard {
             var name = game.players[player].name
             if player == game.me { name += tr(" · 你", "・あなた", " · you") }
             return Seat(id: player,
-                        wind: Theme.windGlyph(game.seatWind(of: player, inHand: hand).name),
+                        wind: Theme.tileGlyph(game.seatWind(of: player, inHand: hand)),
                         name: name,
                         points: game.currentPoints(of: player),
                         isDealer: !game.isFinished && game.dealer(ofHand: hand) == player)
@@ -224,7 +224,7 @@ extension TableBoard {
 
     /// 还没开局时的空桌：东南西北四个空位，你坐东。
     static var empty: TableBoard {
-        let winds = [tr("东", "東", "E"), tr("南", "南", "S"), tr("西", "西", "W"), tr("北", "北", "N")]
+        let winds = (0..<4).map { Theme.tileGlyph(Wind(rawValue: $0)!) }
         let names = [tr("你", "あなた", "You"), tr("下家", "下家", "Right"), tr("对家", "対面", "Across"), tr("上家", "上家", "Left")]
         return TableBoard(
             seats: (0..<4).map { Seat(id: $0, wind: winds[$0], name: names[$0], points: Game.startingPoints, isDealer: $0 == 0) },

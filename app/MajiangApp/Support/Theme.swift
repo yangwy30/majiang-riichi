@@ -5,7 +5,7 @@ import UIKit
 /// 视觉「胡桃木牌桌」：暖白的页面上放一张胡桃木框的绿毡牌桌，风位用真的风牌，供托用真的千点棒。
 /// 页面颜色在 Assets.xcassets 的 Table*，各有深色版本；牌桌、木框、牌是实物颜色，深浅模式一样。
 /// 红色只用在两处：庄家和立直棒上的红点。赢的点数用毡绿，输的用墨色。
-/// 文字用 `ink`，按钮底色用 `fill`（上面放白字）：`ink` 在深色模式是浅色，不能拿来垫白字。
+/// 文字用 `ink`，按钮底色用 `fill`（毡绿，上面放白字）：`ink` 在深色模式是浅色，不能拿来垫白字。
 enum Theme {
     static let paper = Color("TablePaper")
     /// 卡片底：浅色模式是白，不加边框阴影。
@@ -51,6 +51,11 @@ enum Theme {
     /// 「+12,000」「−7,600」「0」。负号用真正的减号，和加号一样宽。
     static func signed(_ value: Int) -> String {
         value > 0 ? "+\(grouped(value))" : value < 0 ? "−\(grouped(-value))" : "0"
+    }
+
+    /// 风牌上的字：不管什么语言都写传统的「東南西北」，跟桌上的真牌一样。
+    static func tileGlyph(_ wind: Wind) -> String {
+        ["東", "南", "西", "北"][wind.rawValue]
     }
 
     /// 风位一个字：英文只写首字母（E、S、W、N），窄的地方放不下四个字母。
@@ -145,7 +150,7 @@ private struct ReadableColumn: ViewModifier {
     }
 }
 
-/// 每页唯一的主按钮：墨色胶囊（深色模式是毡绿）。不能点时变成灰底，按钮上直接写原因。
+/// 每页唯一的主按钮：毡绿胶囊。不能点时变成灰底，按钮上直接写原因。
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 

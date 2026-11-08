@@ -90,6 +90,7 @@ struct CheckView: View {
         .navigationBarBackButtonHidden()
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $editing) { target in sheet(for: target) }
+        .sheet(isPresented: $rareOpen) { rareSheet }
         // 牌摆上绿毡时很轻地震一下
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.6), trigger: landed) { _, new in new }
         .task {
@@ -593,13 +594,12 @@ struct CheckView: View {
                     token(tr("其他", "その他", "More"), on: rareOpen || rareCount > 0) {
                         chipFace(rareCount > 0 ? "+\(rareCount)" : "+", on: rareCount > 0).frame(height: 24)
                     } action: {
-                        withAnimation(.easeOut(duration: 0.2)) { rareOpen.toggle() }
+                        rareOpen = true
                     }
                 }
                 Spacer(minLength: 0)
                 if game.rules.includeFlowers { dora }
             }
-            if rareOpen { rareChips }
         }
         .padding(16)
         .foregroundStyle(.white)
@@ -666,7 +666,23 @@ struct CheckView: View {
         .accessibilityLabel(label)
     }
 
-    /// 「其他」点开：少见的役（双立直、岭上、海底……）和别家也立直了。
+    /// 「其他」：一小页绿毡，放少见的役和别家的立直棒。
+    private var rareSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(tr("其他", "その他", "More"))
+                .font(.system(size: 20, weight: .bold))
+            rareChips
+            Spacer(minLength: 0)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(.white)
+        .presentationDetents([.height(320)])
+        .presentationDragIndicator(.visible)
+        .presentationBackground { FeltTexture() }
+    }
+
+    /// 「其他」里面：少见的役（双立直、岭上、海底……）和别家也立直了。
     private var rareChips: some View {
         VStack(alignment: .leading, spacing: 10) {
             FlowLayout(spacing: 8) {
@@ -937,7 +953,7 @@ private struct SeatPicker: View {
         let ring: Color = isWinner ? .white : isDiscarder ? Color(hex: 0xFFD27A) : .clear
         return Button { pick(player) } label: {
             VStack(spacing: 1) {
-                WindTile(text: Theme.windGlyph(game.seatWind(of: player, inHand: hand).name),
+                WindTile(text: Theme.tileGlyph(game.seatWind(of: player, inHand: hand)),
                          isDealer: game.dealer(ofHand: hand) == player, width: 19)
                 Text(game.players[player].name)
                     .font(.system(size: 9))

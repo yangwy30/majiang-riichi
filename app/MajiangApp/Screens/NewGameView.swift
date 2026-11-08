@@ -41,7 +41,7 @@ struct NewGameView: View {
                     ForEach(0..<4, id: \.self) { i in
                         HStack(spacing: 14) {
                             // 门风跟着第一局的庄走：庄是东，往下南、西、北
-                            WindTile(text: Theme.windGlyph(Wind(rawValue: (i - dealerRow + 4) % 4)!.name),
+                            WindTile(text: Theme.tileGlyph(Wind(rawValue: (i - dealerRow + 4) % 4)!),
                                      isDealer: i == dealerRow, width: 22)
                             TextField(Self.seatHints[i], text: $names[i])
                                 .font(.system(size: 17))
@@ -49,7 +49,6 @@ struct NewGameView: View {
                                 .submitLabel(i < 3 ? .next : .done)
                                 .onSubmit { focused = i < 3 ? i + 1 : nil }
                                 .accessibilityLabel(Self.seatNames[i])
-                            if i == dealerRow { DealerStamp() }
                         }
                         .frame(height: 58)
                         if i < 3 { Hairline(color: Theme.lineSoft) }

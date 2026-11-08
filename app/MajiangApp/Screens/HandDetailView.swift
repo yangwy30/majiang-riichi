@@ -56,38 +56,40 @@ struct HandDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 let dealerName = game.players[game.dealer(ofHand: record.handIndex)].name
-                Text(tr("第 \(number) 局 · \(game.handTitle(for: record)) · \(dealerName)坐庄",
-                        "第\(number)局・\(game.handTitle(for: record))・親：\(dealerName)",
-                        "Hand #\(number) · \(game.handTitle(for: record)) · Dealer: \(dealerName)"))
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.gray)
-                    .padding(.top, 6)
-
                 let paid = game.rules.paidFan(win)
                 let limit = Payment.limitName(han: paid, fu: win.fu, kiriageMangan: game.rules.kiriageMangan)
-                HStack(alignment: .firstTextBaseline) {
-                    Text(win.isSelfDrawn
-                         ? tr("\(game.players[win.winner].name)自摸", "\(game.players[win.winner].name) ツモ", "\(game.players[win.winner].name) Tsumo")
-                         : tr("\(game.players[win.winner].name)和", "\(game.players[win.winner].name) ロン", "\(game.players[win.winner].name) Ron"))
-                        .font(Theme.glyph(28, semibold: true))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Spacer(minLength: 12)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        if let limit {
-                            LimitStamp(text: limit, size: 14)
-                                .alignmentGuide(.firstTextBaseline) { d in d[.bottom] - 3 }
+                // 跟结果页一样的绿毡头：谁怎么和的、赢多少、段位和翻符
+                FeltBanner {
+                    VStack(spacing: 4) {
+                        Text(tr("第 \(number) 局 · \(game.handTitle(for: record)) · \(dealerName)坐庄",
+                                "第\(number)局・\(game.handTitle(for: record))・親：\(dealerName)",
+                                "Hand #\(number) · \(game.handTitle(for: record)) · Dealer: \(dealerName)"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text(win.isSelfDrawn
+                             ? tr("\(game.players[win.winner].name) · 自摸", "\(game.players[win.winner].name)・ツモ", "\(game.players[win.winner].name) · Tsumo")
+                             : tr("\(game.players[win.winner].name) · 荣和", "\(game.players[win.winner].name)・ロン", "\(game.players[win.winner].name) · Ron"))
+                            .font(.system(size: 15))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding(.top, 6)
+                        Text(Theme.signed(record.deltas[win.winner]))
+                            .font(Theme.score(52, weight: .bold))
+                            .tracking(-1.2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        HStack(spacing: 10) {
+                            if let limit { LimitStamp(text: limit, size: 14, color: .white) }
+                            Text(tr("\(win.totalFan) 翻 · \(win.fu) 符", "\(win.totalFan)翻・\(win.fu)符", "\(win.totalFan) han · \(win.fu) fu"))
+                                .font(Theme.score(14, weight: .regular))
+                                .foregroundStyle(.white.opacity(0.85))
                         }
-                        Text("\(win.totalFan)")
-                            .font(Theme.score(40, weight: .semibold))
-                        Text(tr("翻", "翻", "han")).font(Theme.glyph(18))
-                        Text(tr("· \(win.fu) 符", "・\(win.fu)符", "· \(win.fu) fu"))
-                            .font(Theme.score(16))
-                            .foregroundStyle(Theme.gray)
                     }
+                    .padding(.top, 18)
+                    .padding(.bottom, 24)
+                    .padding(.horizontal, 20)
                     .accessibilityElement(children: .combine)
                 }
-                .padding(.top, 2)
+                .padding(.horizontal, -20)
 
                 if game.rules.paidFan(win) < win.totalFan {
                     Text(tr("桌规封顶 \(game.rules.fanCap) 翻：\(win.totalFan) 翻按 \(game.rules.fanCap) 算",

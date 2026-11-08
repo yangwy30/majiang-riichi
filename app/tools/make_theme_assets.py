@@ -8,7 +8,7 @@ COLORS = {
     "TablePaper": ("F4F3EF", "121513"),
     "TableCard": ("FFFFFF", "1C201E"),
     "TableInk": ("1B1F1D", "ECEDEB"),
-    "TableFill": ("1B1F1D", "2E7353"),
+    "TableFill": ("215A40", "2E7353"),
     "TableRed": ("D2402F", "E5574A"),
     "TablePositive": ("215A40", "6FC39A"),
     "TableGray": ("6E7370", "A4A8A5"),
