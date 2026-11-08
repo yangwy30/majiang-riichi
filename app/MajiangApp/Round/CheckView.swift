@@ -69,7 +69,7 @@ struct CheckView: View {
                     problemCard.padding(.top, 18)
                 } else if flow.tiles.isEmpty {
                     // 手动输入还没加牌时，和错了也要能直接记
-                    falseWinLink.padding(.top, 8)
+                    falseWinLink().padding(.top, 8)
                 }
 
                 howWon
@@ -400,7 +400,7 @@ struct CheckView: View {
             reason = Text("和牌要 4 面子加 1 雀头（或七对子、国士无双），这 \(flow.hand.allTiles.count) 张凑不出来。")
         }
         if let suggestion, let index = suggestion.index {
-            reason = reason + Text("最可能是") + Text("第 \(index + 1) 张").fontWeight(.semibold).foregroundStyle(Theme.ink)
+            reason = reason + Text("最可能是") + Text("第 \(index + 1) 张").fontWeight(.semibold).foregroundStyle(.white)
                 + Text("认错了：改成 \(suggestion.to.displayName) 就能和。")
         } else if let suggestion {
             reason = reason + Text("好像少认了一张：补一张 \(suggestion.to.displayName) 就能和。")
@@ -409,56 +409,69 @@ struct CheckView: View {
                                     : "改一张也凑不成，可能不止一张认错了，点右上角的照片对照着再看看。")
         }
 
+        // 绿毡上的一块：标题、原因；能改一张就和时，摆出「这张 → 那张」，点一下换上
         return VStack(alignment: .leading, spacing: 0) {
             Text(title).font(.system(size: 17, weight: .semibold))
             reason
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.ink)
-                .lineSpacing(4)
+                .font(.system(size: 14))
+                .foregroundStyle(.white.opacity(0.85))
+                .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 8)
+                .padding(.top, 6)
             if let suggestion {
                 HStack(spacing: 12) {
+                    if let index = suggestion.index, flow.tiles.indices.contains(index) {
+                        TileFace(tile: flow.tiles[index].tile, width: 32, state: .wrong)
+                    } else {
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .strokeBorder(.white.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                            .frame(width: 32, height: 42)
+                    }
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                    TileFace(tile: suggestion.to, width: 32)
+                        .shadow(color: .black.opacity(0.3), radius: 4, y: 3)
+                    Spacer(minLength: 4)
                     Button {
                         flow.apply(suggestion)
                     } label: {
-                        HStack(spacing: 10) {
-                            TileFace(tile: suggestion.to, width: 22)
-                            Text(suggestion.index == nil ? "补一张 \(suggestion.to.displayName)" : "改成 \(suggestion.to.displayName)")
-                                .font(.system(size: 15, weight: .semibold))
-                        }
-                        .padding(.leading, 8)
-                        .padding(.trailing, 18)
-                        .frame(height: 44)
-                        .foregroundStyle(.white)
-                        .background(Theme.fill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        Text(suggestion.index == nil ? tr("补上", "補う", "Add it") : tr("换上", "差し替え", "Swap in"))
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Theme.tileInk)
+                            .padding(.horizontal, 18)
+                            .frame(height: 40)
+                            .background(.white, in: Capsule())
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(PressFade())
+                    Button { editing = suggestion.index.map { .replace($0) } ?? .add } label: {
+                        Text(tr("自己改", "自分で", "Pick"))
+                            .font(.system(size: 14))
+                            .padding(.horizontal, 12)
+                            .frame(height: 40)
+                            .background(.white.opacity(0.16), in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    Button("自己改") { editing = suggestion.index.map { .replace($0) } ?? .add }
-                        .buttonStyle(.text)
-                        .padding(.horizontal, 6)
                 }
-                .padding(.top, 16)
+                .padding(.top, 14)
             }
-            Hairline(color: Theme.lineSoft)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
-            falseWinLink
+            Rectangle().fill(.white.opacity(0.15)).frame(height: 0.5)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+            falseWinLink(onFelt: true)
         }
-        .padding(.top, 20)
-        .padding(.bottom, 16)
-        .block()
+        .feltCard()
     }
 
-    private var falseWinLink: some View {
+    private func falseWinLink(onFelt: Bool = false) -> some View {
         Button {
             confirmFalseWin = true
         } label: {
             Text(flow.tiles.isEmpty ? "其实是和错了？记下来（赔三家各 \(game.rules.falseWinPenalty) 分）›"
                  : "牌没认错，是真的和错了？记下来（赔三家各 \(game.rules.falseWinPenalty) 分）›")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.gray)
+                .font(.system(size: 13))
+                .foregroundStyle(onFelt ? .white.opacity(0.7) : Theme.gray)
                 .multilineTextAlignment(.leading)
         }
         .buttonStyle(.plain)
@@ -723,63 +736,81 @@ private struct QuestionCard: View {
     private var candidates: [Tile] { Array(tile.candidates.prefix(tile.uncertain ? 3 : 4)) }
     private var onlyOneSide: Bool { tile.uncertain && tile.alternatives.isEmpty }
 
+    /// 拿不准的那张从绿毡上拿起来（斜一点、有影子），候选的牌摆在下面，标着选了能不能和。
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(onlyOneSide
-                 ? tr("第 \(index + 1) 张可能是多认的，照片里有这张吗？", "\(index + 1)枚目は余分に認識された可能性があります。実際にありますか？", "Tile #\(index + 1) might be extra. Is it in the photo?")
-                 : tr("第 \(index + 1) 张看不太清，是哪个？", "\(index + 1)枚目が不鮮明です。どちらですか？", "Tile #\(index + 1) is unclear. Which one is it?"))
-                .font(.system(size: 16, weight: .semibold))
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                ForEach(candidates, id: \.self) { tile in
-                    option(title: onlyOneSide ? tr("有这张", "ある", "Present") : tile.displayName, wins: hint(for: tile)) {
-                        TileFace(tile: tile, width: 30)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                TileFace(tile: tile.tile, width: 40, state: .doubt)
+                    .rotationEffect(.degrees(-6))
+                    .shadow(color: .black.opacity(0.35), radius: 8, y: 8)
+                    .offset(y: -2)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(onlyOneSide
+                         ? tr("这张可能是多认的", "余分に認識した可能性", "This one might be extra")
+                         : tr("这张看不太清", "この牌が不鮮明です", "This tile is unclear"))
+                        .font(.system(size: 17, weight: .semibold))
+                    Text(onlyOneSide
+                         ? tr("第 \(index + 1) 张 · 照片里有这张吗？", "\(index + 1)枚目・写真にありますか？", "Tile #\(index + 1) · Is it in the photo?")
+                         : tr("第 \(index + 1) 张 · 是下面哪一张？", "\(index + 1)枚目・どれですか？", "Tile #\(index + 1) · Which one is it?"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+            HStack(alignment: .top, spacing: 14) {
+                ForEach(candidates, id: \.self) { candidate in
+                    option(title: onlyOneSide ? tr("有这张", "ある", "Present") : candidate.displayName, wins: hint(for: candidate)) {
+                        TileFace(tile: candidate, width: 36)
                     } action: {
-                        flow.choose(tile, at: index)
+                        flow.choose(candidate, at: index)
                     }
                 }
                 if tile.uncertain {
                     option(title: tr("没有这张", "ない", "Not there"), wins: removalHint) {
-                        RoundedRectangle(cornerRadius: 30 * 0.16, style: .continuous)
-                            .strokeBorder(Theme.faint, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                            .frame(width: 30, height: 40)
-                            .overlay(Image(systemName: "xmark").font(.system(size: 13)).foregroundStyle(Theme.gray))
+                        RoundedRectangle(cornerRadius: 36 * 0.16, style: .continuous)
+                            .strokeBorder(.white.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                            .frame(width: 36, height: 48)
+                            .overlay(Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(.white.opacity(0.8)))
                     } action: {
                         flow.remove(at: index)
                     }
                 }
+                Spacer(minLength: 0)
             }
-            .padding(.top, 14)
-            Button("都不是，自己选 ›", action: other)
-                .buttonStyle(.text(size: 14))
-                .padding(.top, 4)
+            Button(action: other) {
+                Text(tr("都不是，自己选 ›", "どれでもない ›", "None of these ›"))
+                    .font(.system(size: 13))
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
+                    .background(.white.opacity(0.16), in: Capsule())
+            }
+            .buttonStyle(.plain)
         }
-        .padding(.top, 18)
-        .padding(.bottom, 6)
-        .block()
+        .feltCard()
     }
 
+    /// 一张候选：牌、名字，下面一个小标签说选了能不能和（能和的牌描白圈）。
     private func option(title: String, wins: Bool?, @ViewBuilder face: () -> some View,
                         action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            VStack(spacing: 6) {
                 face()
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 16, weight: .medium))
-                    if let wins {
-                        Text(wins ? tr("选这个能和", "これで和了可能", "Can win") : tr("选这个和不了", "これでは和了不可", "Cannot win"))
-                            .font(.system(size: 13))
-                            .foregroundStyle(wins ? Theme.positive : Theme.gray)
-                    }
+                    .padding(3)
+                    .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(.white, lineWidth: wins == true ? 2 : 0))
+                    .shadow(color: .black.opacity(0.3), radius: 3, y: 2)
+                Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                if let wins {
+                    Text(wins ? tr("能和", "和了可", "Wins") : tr("和不了", "不可", "No win"))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(wins ? Theme.tileInk : .white.opacity(0.7))
+                        .padding(.horizontal, 8)
+                        .frame(height: 20)
+                        .background(wins ? Color.white : Color.white.opacity(0.12), in: Capsule())
                 }
-                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 14)
-            .frame(height: 64)
-            .background(Theme.paper, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.line))
+            .frame(minWidth: 56)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressFade())
     }
 
     /// 只有这一张拿不准时，直接试一下能不能和；好几张都拿不准时，用规则引擎推荐的那组读法。
@@ -973,5 +1004,21 @@ private struct ScoreBar: View {
         .padding(5)
         .background(Theme.card, in: Capsule())
         .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
+    }
+}
+
+private extension View {
+    /// 核对页的提示块：一小块绿毡，胡桃木细边，白字。
+    func feltCard() -> some View {
+        self
+            .foregroundStyle(.white)
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(FeltTexture().clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
+                    .strokeBorder(LinearGradient(colors: Theme.walnut, startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 4)
+            )
+            .shadow(color: Color(hex: 0x28190A).opacity(0.18), radius: 8, y: 5)
     }
 }
